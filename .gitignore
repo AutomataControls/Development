@@ -9,8 +9,27 @@ src-tauri/WixTools/
 
 # Node
 node_modules/
+/node_modules
+/.pnp
+.pnp.js
 package-lock.json
 yarn.lock
+
+# Testing
+/coverage
+
+# Next.js
+/.next/
+/out/
+
+# Production
+/build
+dist/
+*.deb
+*.AppImage
+*.dmg
+*.exe
+*.msi
 
 # IDE
 .vscode/
@@ -22,25 +41,28 @@ yarn.lock
 # OS
 .DS_Store
 Thumbs.db
+*.pem
 
 # Logs
 *.log
 logs/
-
-# Build artifacts
-dist/
-build/
-*.deb
-*.AppImage
-*.dmg
-*.exe
-*.msi
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Environment
 .env
 .env.local
+.env*.local
 
 # Temporary
 tmp/
 temp/
 *.tmp
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel
