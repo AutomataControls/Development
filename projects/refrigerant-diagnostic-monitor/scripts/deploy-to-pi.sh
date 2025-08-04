@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Refrigerant Diagnostic Monitor - Raspberry Pi Deployment Script
-# Deploys app with P499 transducer support via Sequent Microsystems HAT
+# Deploys app with P499 0-10V transducer support via Sequent Microsystems MegaBAS HAT
 
 set -e
 
@@ -59,7 +59,7 @@ echo "=============================="
 
 # Check for Sequent Microsystems HAT
 echo ""
-echo "Checking for 0-10V/4-20mA HAT..."
+echo "Checking for MegaBAS HAT..."
 if python3 sm_4_20ma.py test 0; then
     echo "✓ HAT detected at stack level 0"
 else
@@ -126,7 +126,7 @@ sudo raspi-config nonint do_i2c 0
 # Install required packages
 echo "Installing dependencies..."
 sudo apt-get update
-sudo apt-get install -y python3-smbus i2c-tools python3-pip
+sudo apt-get install -y python3-smbus i2c-tools python3-pip python3-dev
 
 # Add user to i2c group
 echo "Adding user to i2c group..."
@@ -173,7 +173,7 @@ if ! groups | grep -q i2c; then
 fi
 
 # Install Python dependencies
-pip3 install smbus
+pip3 install megabas
 
 echo ""
 echo "Deployment complete!"
@@ -181,13 +181,11 @@ echo ""
 echo "P499 Transducer Setup:"
 echo "====================="
 echo "1. Connect P499 transducers to Sequent Microsystems HAT"
-echo "2. 0-10V models: Connect to voltage inputs (channels 0-7)"
-echo "3. 4-20mA models: Connect to current inputs (channels 0-7)"
-echo "4. Ensure proper grounding and shielding"
+echo "2. Connect P499 0-10V models to voltage inputs (channels 0-7)"
+echo "3. Ensure proper grounding and shielding"
 echo ""
 echo "Supported P499 Models:"
 echo "- P499VCP-xxx: 0-10V output"
-echo "- P499ACP-xxx: 4-20mA output"
 echo "- P499RCP-xxx: 0.5-4.5V ratiometric (use 0-10V input)"
 echo ""
 echo "To run manually:"

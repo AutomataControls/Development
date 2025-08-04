@@ -1,5 +1,5 @@
 // P499 Series Electronic Pressure Transducer Interface
-// Supports 0-10V and 4-20mA models via Sequent Microsystems HAT
+// Supports 0-10V models via Sequent Microsystems MegaBAS HAT
 
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -19,7 +19,6 @@ pub struct P499Configuration {
 pub enum OutputType {
     Voltage0to10V,
     Voltage05to45V,
-    Current4to20mA,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,28 +78,6 @@ impl P499Interface {
         }
     }
     
-    // Read current from Sequent Microsystems 4-20mA input HAT
-    fn read_current_channel(&self, channel: u8) -> Result<f32, Box<dyn Error>> {
-        let output = Command::new("python3")
-            .arg("-c")
-            .arg(format!(
-                "import sm_4_20ma; print(sm_4_20ma.get_4_20ma({}, {}))",
-                self.hat_stack_level,
-                channel
-            ))
-            .output()?;
-        
-        if output.status.success() {
-            let current_str = String::from_utf8_lossy(&output.stdout);
-            let current = current_str.trim().parse::<f32>()?;
-            Ok(current)
-        } else {
-            Err(format!("Failed to read channel {}: {}", 
-                channel, 
-                String::from_utf8_lossy(&output.stderr)
-            ).into())
-        }
-    }
     
     pub fn read_transducer(&self, channel: u8) -> Result<TransducerReading, Box<dyn Error>> {
         let config = self.transducers
@@ -116,7 +93,6 @@ impl P499Interface {
                 // Convert 0-10V reading to 0.5-4.5V scale
                 voltage * 0.45 + 0.5
             },
-            OutputType::Current4to20mA => self.read_current_channel(channel)?,
         };
         
         let pressure = self.calculate_pressure(config, raw_value);
@@ -136,7 +112,6 @@ impl P499Interface {
         let normalized_value = match &config.output_type {
             OutputType::Voltage0to10V => raw_value / 10.0,
             OutputType::Voltage05to45V => (raw_value - 0.5) / 4.0,
-            OutputType::Current4to20mA => (raw_value - 4.0) / 16.0,
         };
         
         let pressure_range = config.pressure_range.max_psi - config.pressure_range.min_psi;
