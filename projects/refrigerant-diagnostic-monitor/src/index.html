@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutomataNexus Refrigerant Diagnostic Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 25%, #90caf9 50%, #64b5f6 75%, #42a5f5 100%);
+            min-height: 100vh;
+        }
+        
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        
+        /* Header */
+        .header {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        
+        .app-title {
+            font-size: 24px;
+            font-weight: 300;
+            background: linear-gradient(135deg, #1976d2, #0d47a1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 0 2rem;
+            overflow-x: auto;
+        }
+        
+        .tab-btn {
+            padding: 1rem 1.5rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            color: #1a1a1a;
+            font-size: 14px;
+            font-weight: 500;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-btn:hover {
+            background: rgba(25, 118, 210, 0.1);
+        }
+        
+        .tab-btn.active {
+            color: #1976d2;
+        }
+        
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #1976d2;
+        }
+        
+        /* Content */
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+        }
+        
+        .section {
+            display: none;
+        }
+        
+        .section.active {
+            display: block;
+        }
+        
+        /* Glass Cards */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 1.5rem;
+        }
+        
+        /* Refrigerant Selector */
+        .refrigerant-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        
+        .refrigerant-card {
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .refrigerant-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .refrigerant-card.selected {
+            border-color: #1976d2;
+            background: rgba(25, 118, 210, 0.1);
+        }
+        
+        .refrigerant-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1976d2;
+            margin-bottom: 0.5rem;
+        }
+        
+        .refrigerant-details {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        /* Gauge Display */
+        .gauge-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+        }
+        
+        .gauge {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 1.5rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .gauge-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: #1976d2;
+            margin: 1rem 0;
+        }
+        
+        .gauge-label {
+            font-size: 14px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .gauge-unit {
+            font-size: 18px;
+            color: #888;
+        }
+        
+        /* Diagnostic Results */
+        .diagnostic-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        
+        .diagnostic-item {
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .diagnostic-label {
+            font-size: 14px;
+            color: #1a1a1a;
+        }
+        
+        .diagnostic-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1976d2;
+        }
+        
+        /* Fault Display */
+        .fault-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .fault-item {
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            padding: 1rem;
+            border-left: 4px solid #ff5252;
+        }
+        
+        .fault-item.critical {
+            border-left-color: #d32f2f;
+            background: rgba(211, 47, 47, 0.1);
+        }
+        
+        .fault-item.major {
+            border-left-color: #f57c00;
+            background: rgba(245, 124, 0, 0.1);
+        }
+        
+        .fault-item.minor {
+            border-left-color: #fbc02d;
+            background: rgba(251, 192, 45, 0.1);
+        }
+        
+        .fault-item.info {
+            border-left-color: #1976d2;
+            background: rgba(25, 118, 210, 0.1);
+        }
+        
+        .fault-type {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 0.5rem;
+        }
+        
+        .fault-description {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+        
+        .fault-confidence {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #1976d2, #0d47a1);
+            color: white;
+            box-shadow: 0 4px 15px rgba(25, 118, 210, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(25, 118, 210, 0.4);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.8);
+            color: #1976d2;
+            border: 2px solid #1976d2;
+        }
+        
+        .btn-secondary:hover {
+            background: #1976d2;
+            color: white;
+        }
+        
+        /* Forms */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 14px;
+            font-weight: 500;
+            color: #1a1a1a;
+        }
+        
+        .form-input, .form-select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: #1976d2;
+            box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+        }
+        
+        /* Search */
+        .search-container {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 1rem;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            font-size: 16px;
+        }
+        
+        /* PT Chart */
+        .chart-container {
+            position: relative;
+            height: 400px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+            padding: 1rem;
+        }
+        
+        /* Status Indicators */
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .status-dot.online {
+            background: #4caf50;
+            box-shadow: 0 0 5px #4caf50;
+        }
+        
+        .status-dot.offline {
+            background: #f44336;
+            box-shadow: 0 0 5px #f44336;
+        }
+        
+        /* Efficiency Score */
+        .efficiency-display {
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .efficiency-score {
+            font-size: 72px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #4caf50, #8bc34a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .efficiency-label {
+            font-size: 18px;
+            color: #666;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo-section">
+                <h1 class="app-title">Refrigerant Diagnostic Monitor</h1>
+            </div>
+            <div class="status-section">
+                <span class="status-dot online"></span>
+                <span>P499 Transducers Connected</span>
+            </div>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('dashboard', this)">Dashboard</button>
+            <button class="tab-btn" onclick="showTab('refrigerants', this)">Refrigerants</button>
+            <button class="tab-btn" onclick="showTab('sensors', this)">Sensors</button>
+            <button class="tab-btn" onclick="showTab('diagnostics', this)">Diagnostics</button>
+            <button class="tab-btn" onclick="showTab('pt-chart', this)">P-T Chart</button>
+            <button class="tab-btn" onclick="showTab('trending', this)">Trending</button>
+            <button class="tab-btn" onclick="showTab('settings', this)">Settings</button>
+        </div>
+        
+        <!-- Content -->
+        <div class="content">
+            <!-- Dashboard -->
+            <section id="dashboard" class="section active">
+                <div class="glass-card">
+                    <h2 class="card-title">System Overview</h2>
+                    <div class="gauge-container">
+                        <div class="gauge">
+                            <div class="gauge-label">Suction Pressure</div>
+                            <div class="gauge-value" id="suction-pressure">--</div>
+                            <div class="gauge-unit">PSI</div>
+                        </div>
+                        <div class="gauge">
+                            <div class="gauge-label">Discharge Pressure</div>
+                            <div class="gauge-value" id="discharge-pressure">--</div>
+                            <div class="gauge-unit">PSI</div>
+                        </div>
+                        <div class="gauge">
+                            <div class="gauge-label">Superheat</div>
+                            <div class="gauge-value" id="superheat">--</div>
+                            <div class="gauge-unit">°F</div>
+                        </div>
+                        <div class="gauge">
+                            <div class="gauge-label">Subcooling</div>
+                            <div class="gauge-value" id="subcooling">--</div>
+                            <div class="gauge-unit">°F</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-card">
+                    <h2 class="card-title">Active Faults</h2>
+                    <div id="fault-list" class="fault-list">
+                        <p style="text-align: center; color: #666;">No active faults</p>
+                    </div>
+                </div>
+                
+                <div class="glass-card">
+                    <h2 class="card-title">System Efficiency</h2>
+                    <div class="efficiency-display">
+                        <div class="efficiency-score" id="efficiency-score">--</div>
+                        <div class="efficiency-label">Efficiency Score</div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Refrigerants -->
+            <section id="refrigerants" class="section">
+                <div class="glass-card">
+                    <h2 class="card-title">Select Refrigerant</h2>
+                    <div class="search-container">
+                        <input type="text" class="search-input" placeholder="Search refrigerants..." id="refrigerant-search">
+                        <select class="form-select" id="safety-filter" style="width: 200px;">
+                            <option value="">All Safety Classes</option>
+                            <option value="A1">A1 - Non-toxic, Non-flammable</option>
+                            <option value="A2L">A2L - Non-toxic, Mildly flammable</option>
+                            <option value="A2">A2 - Non-toxic, Flammable</option>
+                            <option value="A3">A3 - Non-toxic, Highly flammable</option>
+                            <option value="B2L">B2L - Toxic, Mildly flammable</option>
+                        </select>
+                        <input type="number" class="form-input" placeholder="Max GWP" id="gwp-filter" style="width: 150px;">
+                    </div>
+                    <div id="refrigerant-grid" class="refrigerant-grid">
+                        <!-- Refrigerants will be loaded here -->
+                    </div>
+                </div>
+                
+                <div class="glass-card">
+                    <h2 class="card-title">Selected Refrigerant Properties</h2>
+                    <div id="refrigerant-properties">
+                        <p style="text-align: center; color: #666;">Select a refrigerant to view properties</p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Sensors -->
+            <section id="sensors" class="section">
+                <div class="glass-card">
+                    <h2 class="card-title">P499 Transducer Configuration</h2>
+                    <button class="btn btn-primary" onclick="initializeHAT()">Initialize HAT</button>
+                    <button class="btn btn-secondary" onclick="scanTransducers()">Scan Transducers</button>
+                    
+                    <div id="transducer-list" style="margin-top: 2rem;">
+                        <!-- Transducers will be listed here -->
+                    </div>
+                </div>
+                
+                <div class="glass-card">
+                    <h2 class="card-title">Add Transducer</h2>
+                    <form onsubmit="event.preventDefault(); addTransducer();">
+                        <div class="diagnostic-grid">
+                            <div class="form-group">
+                                <label class="form-label">Channel</label>
+                                <select class="form-select" id="transducer-channel">
+                                    <option value="0">Channel 0</option>
+                                    <option value="1">Channel 1</option>
+                                    <option value="2">Channel 2</option>
+                                    <option value="3">Channel 3</option>
+                                    <option value="4">Channel 4</option>
+                                    <option value="5">Channel 5</option>
+                                    <option value="6">Channel 6</option>
+                                    <option value="7">Channel 7</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Model</label>
+                                <select class="form-select" id="transducer-model">
+                                    <option value="P499VCP-101C">P499VCP-101C (0-100 PSI, 0-10V)</option>
+                                    <option value="P499VCP-105C">P499VCP-105C (0-500 PSI, 0-10V)</option>
+                                    <option value="P499VCP-107C">P499VCP-107C (0-750 PSI, 0-10V)</option>
+                                    <option value="P499ACP-101C">P499ACP-101C (0-100 PSI, 4-20mA)</option>
+                                    <option value="P499ACP-105C">P499ACP-105C (0-500 PSI, 4-20mA)</option>
+                                    <option value="P499ACP-107C">P499ACP-107C (0-750 PSI, 4-20mA)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Purpose</label>
+                                <select class="form-select" id="transducer-purpose">
+                                    <option value="suction">Suction Pressure</option>
+                                    <option value="discharge">Discharge Pressure</option>
+                                    <option value="liquid">Liquid Line Pressure</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Calibration Offset</label>
+                                <input type="number" class="form-input" id="cal-offset" value="0" step="0.1">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Transducer</button>
+                    </form>
+                </div>
+            </section>
+            
+            <!-- Diagnostics -->
+            <section id="diagnostics" class="section">
+                <div class="glass-card">
+                    <h2 class="card-title">System Configuration</h2>
+                    <form onsubmit="event.preventDefault(); runDiagnostics();">
+                        <div class="diagnostic-grid">
+                            <div class="form-group">
+                                <label class="form-label">System ID</label>
+                                <input type="text" class="form-input" id="system-id" value="System-1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Refrigerant</label>
+                                <select class="form-select" id="diag-refrigerant">
+                                    <option value="R-410A">R-410A</option>
+                                    <option value="R-454B">R-454B</option>
+                                    <option value="R-32">R-32</option>
+                                    <option value="R-22">R-22</option>
+                                    <option value="R-134a">R-134a</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">System Type</label>
+                                <select class="form-select" id="system-type">
+                                    <option value="TXV">TXV System</option>
+                                    <option value="FixedOrifice">Fixed Orifice</option>
+                                    <option value="EEV">Electronic Expansion Valve</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Equipment Tonnage</label>
+                                <input type="number" class="form-input" id="tonnage" value="3" step="0.5">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Run Diagnostics</button>
+                        <button type="button" class="btn btn-secondary" onclick="simulateSystem()">Simulate System</button>
+                    </form>
+                </div>
+                
+                <div class="glass-card">
+                    <h2 class="card-title">Diagnostic Results</h2>
+                    <div id="diagnostic-results">
+                        <p style="text-align: center; color: #666;">Run diagnostics to see results</p>
+                    </div>
+                </div>
+                
+                <div class="glass-card">
+                    <h2 class="card-title">Recommendations</h2>
+                    <div id="recommendations">
+                        <p style="text-align: center; color: #666;">No recommendations available</p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- P-T Chart -->
+            <section id="pt-chart" class="section">
+                <div class="glass-card">
+                    <h2 class="card-title">Pressure-Temperature Chart</h2>
+                    <div class="form-group">
+                        <label class="form-label">Select Refrigerant</label>
+                        <select class="form-select" id="pt-refrigerant" onchange="updatePTChart()">
+                            <option value="R-410A">R-410A</option>
+                            <option value="R-454B">R-454B</option>
+                            <option value="R-32">R-32</option>
+                            <option value="R-22">R-22</option>
+                            <option value="R-134a">R-134a</option>
+                            <option value="R-404A">R-404A</option>
+                            <option value="R-290">R-290</option>
+                            <option value="R-744">R-744 (CO2)</option>
+                        </select>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="ptChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="glass-card">
+                    <h2 class="card-title">P-T Calculator</h2>
+                    <div class="diagnostic-grid">
+                        <div class="form-group">
+                            <label class="form-label">Pressure (PSI)</label>
+                            <input type="number" class="form-input" id="calc-pressure" oninput="calculateSatTemp()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Saturation Temperature (°F)</label>
+                            <input type="text" class="form-input" id="calc-temp" readonly>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Trending -->
+            <section id="trending" class="section">
+                <div class="glass-card">
+                    <h2 class="card-title">System Trends</h2>
+                    <div class="chart-container">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Settings -->
+            <section id="settings" class="section">
+                <div class="glass-card">
+                    <h2 class="card-title">HAT Configuration</h2>
+                    <div class="form-group">
+                        <label class="form-label">HAT Stack Level (0-7)</label>
+                        <input type="number" class="form-input" id="hat-stack" value="0" min="0" max="7">
+                    </div>
+                    <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+                </div>
+            </section>
+        </div>
+    </div>
+    
+    <script>
+        // Tauri API
+        const { invoke } = window.__TAURI__ || { invoke: async () => {} };
+        
+        // Global variables
+        let selectedRefrigerant = 'R-410A';
+        let ptChart = null;
+        let trendChart = null;
+        let currentSystem = null;
+        
+        // Tab switching
+        function showTab(tabName, btn) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            
+            document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Load tab-specific data
+            switch(tabName) {
+                case 'refrigerants':
+                    loadRefrigerants();
+                    break;
+                case 'pt-chart':
+                    updatePTChart();
+                    break;
+            }
+        }
+        
+        // Load refrigerants
+        async function loadRefrigerants() {
+            try {
+                const refrigerants = await invoke('list_refrigerants');
+                displayRefrigerants(refrigerants);
+            } catch (error) {
+                console.error('Error loading refrigerants:', error);
+            }
+        }
+        
+        // Display refrigerants
+        function displayRefrigerants(refrigerants) {
+            const grid = document.getElementById('refrigerant-grid');
+            grid.innerHTML = refrigerants.map(r => `
+                <div class="refrigerant-card ${r.designation === selectedRefrigerant ? 'selected' : ''}" 
+                     onclick="selectRefrigerant('${r.designation}')">
+                    <div class="refrigerant-name">${r.designation}</div>
+                    <div class="refrigerant-details">
+                        <div>Safety: ${r.safety_class}</div>
+                        <div>GWP: ${r.gwp}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Select refrigerant
+        async function selectRefrigerant(designation) {
+            selectedRefrigerant = designation;
+            loadRefrigerants();
+            
+            try {
+                const properties = await invoke('get_refrigerant_properties', { designation });
+                displayRefrigerantProperties(properties);
+            } catch (error) {
+                console.error('Error getting refrigerant properties:', error);
+            }
+        }
+        
+        // Display refrigerant properties
+        function displayRefrigerantProperties(props) {
+            const container = document.getElementById('refrigerant-properties');
+            container.innerHTML = `
+                <div class="diagnostic-grid">
+                    <div class="diagnostic-item">
+                        <span class="diagnostic-label">Chemical Name</span>
+                        <span class="diagnostic-value" style="font-size: 14px;">${props.chemical_name}</span>
+                    </div>
+                    <div class="diagnostic-item">
+                        <span class="diagnostic-label">Safety Class</span>
+                        <span class="diagnostic-value">${props.safety_class}</span>
+                    </div>
+                    <div class="diagnostic-item">
+                        <span class="diagnostic-label">GWP</span>
+                        <span class="diagnostic-value">${props.gwp}</span>
+                    </div>
+                    <div class="diagnostic-item">
+                        <span class="diagnostic-label">Critical Temp</span>
+                        <span class="diagnostic-value">${props.critical_temp_f.toFixed(1)}°F</span>
+                    </div>
+                    <div class="diagnostic-item">
+                        <span class="diagnostic-label">Normal Low Pressure</span>
+                        <span class="diagnostic-value">${props.normal_low_pressure_range[0]}-${props.normal_low_pressure_range[1]} PSI</span>
+                    </div>
+                    <div class="diagnostic-item">
+                        <span class="diagnostic-label">Normal High Pressure</span>
+                        <span class="diagnostic-value">${props.normal_high_pressure_range[0]}-${props.normal_high_pressure_range[1]} PSI</span>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem;">
+                    <strong>Applications:</strong> ${props.applications.join(', ')}
+                </div>
+                <div style="margin-top: 0.5rem;">
+                    <strong>Status:</strong> ${props.phase_out_status}
+                </div>
+            `;
+        }
+        
+        // Initialize HAT
+        async function initializeHAT() {
+            const stackLevel = parseInt(document.getElementById('hat-stack').value || '0');
+            try {
+                const result = await invoke('initialize_hat', { stack_level: stackLevel });
+                alert(result);
+            } catch (error) {
+                alert('HAT initialization failed: ' + error);
+            }
+        }
+        
+        // Run diagnostics
+        async function runDiagnostics() {
+            const systemId = document.getElementById('system-id').value;
+            const refrigerant = document.getElementById('diag-refrigerant').value;
+            const systemType = document.getElementById('system-type').value;
+            const tonnage = parseFloat(document.getElementById('tonnage').value);
+            
+            // Configure system
+            const config = {
+                refrigerant_type: refrigerant,
+                system_type: systemType,
+                equipment_info: {
+                    manufacturer: "Generic",
+                    model: "Test",
+                    tonnage: tonnage,
+                    age_years: 5
+                }
+            };
+            
+            try {
+                await invoke('configure_system', { system_id: systemId, config });
+                
+                // Get current readings (this would come from actual transducers)
+                const reading = await getSystemReading();
+                
+                // Analyze system
+                const result = await invoke('analyze_system', { system_id: systemId, reading });
+                displayDiagnosticResults(result);
+                
+            } catch (error) {
+                alert('Diagnostic error: ' + error);
+            }
+        }
+        
+        // Display diagnostic results
+        function displayDiagnosticResults(result) {
+            // Update gauges
+            document.getElementById('superheat').textContent = result.superheat.toFixed(1);
+            document.getElementById('subcooling').textContent = result.subcooling.toFixed(1);
+            document.getElementById('efficiency-score').textContent = result.efficiency_score.toFixed(0);
+            
+            // Display results
+            const container = document.getElementById('diagnostic-results');
+            container.innerHTML = `
+                <div class="diagnostic-grid">
+                    <div class="diagnostic-item">
+                        <span class="diagnostic-label">Superheat</span>
+                        <span class="diagnostic-value">${result.superheat.toFixed(1)}°F</span>
+                    </div>
+                    <div class="diagnostic-item">
+                        <span class="diagnostic-label">Subcooling</span>
+                        <span class="diagnostic-value">${result.subcooling.toFixed(1)}°F</span>
+                    </div>
+                    <div class="diagnostic-item">
+                        <span class="diagnostic-label">Approach Temp</span>
+                        <span class="diagnostic-value">${result.approach_temperature.toFixed(1)}°F</span>
+                    </div>
+                    <div class="diagnostic-item">
+                        <span class="diagnostic-label">Pressure Ratio</span>
+                        <span class="diagnostic-value">${result.pressure_ratio.toFixed(2)}</span>
+                    </div>
+                </div>
+            `;
+            
+            // Display faults
+            const faultList = document.getElementById('fault-list');
+            if (result.faults.length > 0) {
+                faultList.innerHTML = result.faults.map(f => `
+                    <div class="fault-item ${f.severity.toLowerCase()}">
+                        <div class="fault-type">${f.fault_type.replace(/([A-Z])/g, ' $1').trim()}</div>
+                        <div class="fault-description">${f.description}</div>
+                        <div class="fault-confidence">Confidence: ${(f.confidence * 100).toFixed(0)}%</div>
+                    </div>
+                `).join('');
+            } else {
+                faultList.innerHTML = '<p style="text-align: center; color: #4caf50;">No faults detected</p>';
+            }
+            
+            // Display recommendations
+            const recContainer = document.getElementById('recommendations');
+            if (result.recommendations.length > 0) {
+                recContainer.innerHTML = '<ul>' + 
+                    result.recommendations.map(r => `<li>${r}</li>`).join('') + 
+                '</ul>';
+            } else {
+                recContainer.innerHTML = '<p style="text-align: center; color: #666;">System operating normally</p>';
+            }
+        }
+        
+        // Get system reading (from transducers or simulation)
+        async function getSystemReading() {
+            // Try to read actual transducers
+            try {
+                const transducers = await invoke('read_all_transducers');
+                if (transducers.length >= 2) {
+                    return {
+                        timestamp: Date.now() / 1000,
+                        suction_pressure: transducers[0].pressure_psi,
+                        discharge_pressure: transducers[1].pressure_psi,
+                        suction_temperature: 55.0, // Would come from temp sensors
+                        discharge_temperature: 120.0,
+                        liquid_line_temperature: 105.0,
+                        ambient_temperature: 95.0,
+                        indoor_wet_bulb: 65.0,
+                        indoor_dry_bulb: 75.0
+                    };
+                }
+            } catch (error) {
+                console.log('Using simulated reading:', error);
+            }
+            
+            // Return simulated reading
+            return await invoke('simulate_reading');
+        }
+        
+        // Simulate system
+        async function simulateSystem() {
+            const reading = await invoke('simulate_reading');
+            
+            // Update pressure displays
+            document.getElementById('suction-pressure').textContent = reading.suction_pressure.toFixed(0);
+            document.getElementById('discharge-pressure').textContent = reading.discharge_pressure.toFixed(0);
+            
+            // Run diagnostics with simulated data
+            runDiagnostics();
+        }
+        
+        // Update P-T chart
+        async function updatePTChart() {
+            const refrigerant = document.getElementById('pt-refrigerant').value;
+            
+            try {
+                const ptData = await invoke('get_pt_data', { refrigerant });
+                
+                const ctx = document.getElementById('ptChart').getContext('2d');
+                
+                if (ptChart) {
+                    ptChart.destroy();
+                }
+                
+                ptChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ptData.map(pt => pt[0]),
+                        datasets: [{
+                            label: refrigerant + ' Pressure',
+                            data: ptData.map(pt => pt[1]),
+                            borderColor: '#1976d2',
+                            backgroundColor: 'rgba(25, 118, 210, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `${refrigerant} Pressure-Temperature Relationship`
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Temperature (°F)'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Pressure (PSI)'
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error updating P-T chart:', error);
+            }
+        }
+        
+        // Calculate saturation temperature
+        async function calculateSatTemp() {
+            const pressure = parseFloat(document.getElementById('calc-pressure').value);
+            const refrigerant = document.getElementById('pt-refrigerant').value;
+            
+            if (!isNaN(pressure)) {
+                try {
+                    const temp = await invoke('calculate_saturation_temp', { 
+                        refrigerant, 
+                        pressure_psi: pressure 
+                    });
+                    document.getElementById('calc-temp').value = temp.toFixed(1);
+                } catch (error) {
+                    document.getElementById('calc-temp').value = 'N/A';
+                }
+            }
+        }
+        
+        // Search refrigerants
+        document.getElementById('refrigerant-search').addEventListener('input', async (e) => {
+            const search = e.target.value.toLowerCase();
+            const refrigerants = await invoke('list_refrigerants');
+            const filtered = refrigerants.filter(r => 
+                r.designation.toLowerCase().includes(search) ||
+                r.chemical_name.toLowerCase().includes(search)
+            );
+            displayRefrigerants(filtered);
+        });
+        
+        // Filter by safety class
+        document.getElementById('safety-filter').addEventListener('change', async (e) => {
+            if (e.target.value) {
+                const refrigerants = await invoke('search_by_safety_class', { 
+                    safety_class: e.target.value 
+                });
+                const fullData = await Promise.all(
+                    refrigerants.map(async (des) => {
+                        const props = await invoke('get_refrigerant_properties', { designation: des });
+                        return {
+                            designation: props.designation,
+                            safety_class: props.safety_class,
+                            gwp: props.gwp
+                        };
+                    })
+                );
+                displayRefrigerants(fullData);
+            } else {
+                loadRefrigerants();
+            }
+        });
+        
+        // Filter by GWP
+        document.getElementById('gwp-filter').addEventListener('change', async (e) => {
+            const maxGwp = parseInt(e.target.value);
+            if (!isNaN(maxGwp)) {
+                const refrigerants = await invoke('search_by_gwp', { max_gwp: maxGwp });
+                const fullData = await Promise.all(
+                    refrigerants.map(async (des) => {
+                        const props = await invoke('get_refrigerant_properties', { designation: des });
+                        return {
+                            designation: props.designation,
+                            safety_class: props.safety_class,
+                            gwp: props.gwp
+                        };
+                    })
+                );
+                displayRefrigerants(fullData);
+            }
+        });
+        
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Refrigerant Diagnostic Monitor loaded');
+            
+            // Start periodic updates
+            setInterval(async () => {
+                // Update transducer readings if on dashboard
+                if (document.getElementById('dashboard').classList.contains('active')) {
+                    try {
+                        const transducers = await invoke('read_all_transducers');
+                        if (transducers.length > 0) {
+                            document.getElementById('suction-pressure').textContent = 
+                                transducers[0].pressure_psi.toFixed(0);
+                            if (transducers.length > 1) {
+                                document.getElementById('discharge-pressure').textContent = 
+                                    transducers[1].pressure_psi.toFixed(0);
+                            }
+                        }
+                    } catch (error) {
+                        // Silent fail for continuous updates
+                    }
+                }
+            }, 2000);
+        });
+    </script>
+</body>
+</html>
