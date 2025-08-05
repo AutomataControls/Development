@@ -55,8 +55,8 @@ class AutomataNexusInstaller:
         self.setup_ui()
         
     def setup_ui(self):
-        # Header with logo - using shadcn/ui inspired colors
-        header_frame = tk.Frame(self.root, bg="#0f172a", height=120)  # Dark slate from shadcn
+        # Header with logo - clean professional light theme
+        header_frame = tk.Frame(self.root, bg="#f8fafc", height=120)  # Clean light background
         header_frame.pack(fill=tk.X)
         header_frame.pack_propagate(False)
         
@@ -66,16 +66,16 @@ class AutomataNexusInstaller:
             logo_img = Image.open("public/automata-nexus-logo.png")
             logo_img = logo_img.resize((64, 64), Image.Resampling.LANCZOS)
             logo_photo = ImageTk.PhotoImage(logo_img)
-            logo_label = tk.Label(header_frame, image=logo_photo, bg="#0f172a")
+            logo_label = tk.Label(header_frame, image=logo_photo, bg="#f8fafc")
             logo_label.image = logo_photo  # Keep a reference
             logo_label.pack(pady=10)
         except:
             # Fallback to text logo - professional blue
-            logo_label = tk.Label(header_frame, text="🏭", font=("Arial", 48), bg="#0f172a", fg="#3b82f6")
+            logo_label = tk.Label(header_frame, text="🏭", font=("Arial", 48), bg="#f8fafc", fg="#3b82f6")
             logo_label.pack(pady=10)
         
         title_label = tk.Label(header_frame, text="Automata Nexus Automation Control Center", 
-                              font=("Arial", 18, "bold"), bg="#0f172a", fg="#f8fafc")
+                              font=("Arial", 18, "bold"), bg="#f8fafc", fg="#1e293b")
         title_label.pack()
         
         # Main content
