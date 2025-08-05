@@ -84,13 +84,13 @@ class AutomataNexusInstaller:
     def setup_ui(self):
         # Header with logo - using exact shadcn/ui colors
         # Background: hsl(210 40% 98%) converted to hex = #f8fafc
-        header_frame = tk.Frame(self.root, bg="#f8fafc", height=120)
+        header_frame = tk.Frame(self.root, bg="#f8fafc", height=150)
         header_frame.pack(fill=tk.X)
         header_frame.pack_propagate(False)
         
         # Try to load logo immediately, fallback to text logo
         self.logo_label = tk.Label(header_frame, text="🏭", font=("Arial", 48), bg="#f8fafc", fg="#3b82f6")
-        self.logo_label.pack(pady=10)
+        self.logo_label.pack(pady=15)
         
         # Try to load the actual logo immediately
         self.load_logo_immediately()
@@ -131,7 +131,8 @@ class AutomataNexusInstaller:
                 if os.path.exists(logo_path):
                     try:
                         logo_img = Image.open(logo_path)
-                        logo_img = logo_img.resize((64, 64), Image.LANCZOS)
+                        # Maintain aspect ratio and make it larger
+                        logo_img.thumbnail((120, 120), Image.LANCZOS)
                         logo_photo = ImageTk.PhotoImage(logo_img)
                         
                         # Update the existing logo label
@@ -175,7 +176,8 @@ class AutomataNexusInstaller:
                     try:
                         self.log(f"Loading logo from: {logo_path}")
                         logo_img = Image.open(logo_path)
-                        logo_img = logo_img.resize((64, 64), Image.LANCZOS)
+                        # Maintain aspect ratio and make it larger
+                        logo_img.thumbnail((120, 120), Image.LANCZOS)
                         logo_photo = ImageTk.PhotoImage(logo_img)
                         
                         # Update the existing logo label
