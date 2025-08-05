@@ -360,33 +360,73 @@ For licensing inquiries, contact: licensing@automatanexus.com
         """Install the main application"""
         self.log("Installing Automata Nexus Control Center...")
         
-        # Download application bundle (in real implementation)
-        # For now, copy from development directory
-        app_source = "/mnt/d/opt/automatanexus-node-red-dev/Development/projects/building-automation-controller"
+        # Find the application source - should be in current directory or cloned repo
+        possible_sources = [
+            # Current directory (if running from repo)
+            os.getcwd(),
+            # Parent directories
+            os.path.dirname(os.getcwd()),
+            # Standard clone locations
+            "/home/Automata/Development/projects/building-automation-controller",
+            "/home/pi/Development/projects/building-automation-controller",
+            # Current installer directory parent
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ]
         
-        if os.path.exists(app_source):
-            # Copy application files
-            self.log("Copying application files...")
-            shutil.copytree(app_source, f"{self.install_path}/app", dirs_exist_ok=True)
-            
-            # Build the application
-            self.log("Building application...")
-            os.chdir(f"{self.install_path}/app")
-            
+        app_source = None
+        for source in possible_sources:
+            if os.path.exists(os.path.join(source, "package.json")) and os.path.exists(os.path.join(source, "src-tauri")):
+                app_source = source
+                self.log(f"Found application source at: {source}")
+                break
+        
+        if not app_source:
+            raise Exception("Could not find application source directory with package.json and src-tauri")
+        
+        # Copy application files
+        self.log("Copying application files...")
+        if os.path.exists(f"{self.install_path}/app"):
+            shutil.rmtree(f"{self.install_path}/app")
+        shutil.copytree(app_source, f"{self.install_path}/app", dirs_exist_ok=True)
+        
+        # Build the application
+        self.log("Building application...")
+        build_dir = f"{self.install_path}/app"
+        os.chdir(build_dir)
+        
+        try:
             # Install npm dependencies
+            self.log("Installing Node.js dependencies...")
             self.run_command(["npm", "install"])
             
-            # Build Next.js
+            # Build Next.js frontend
+            self.log("Building Next.js frontend...")
             self.run_command(["npm", "run", "build"])
             
-            # Build Tauri for ARM64
-            os.chdir("src-tauri")
+            # Build Rust backend for ARM64
+            self.log("Building Rust backend for ARM64...")
+            rust_dir = os.path.join(build_dir, "src-tauri")
+            os.chdir(rust_dir)
+            
+            # Add ARM64 target if not present
+            self.run_command(["/root/.cargo/bin/rustup", "target", "add", "aarch64-unknown-linux-gnu"])
+            
+            # Build for ARM64
             self.run_command(["/root/.cargo/bin/cargo", "build", "--release", 
                             "--target", "aarch64-unknown-linux-gnu"])
-        else:
-            # In production, download from server
-            self.log("Downloading application bundle...")
-            # Download and extract application
+            
+            # Verify binary was created
+            binary_path = os.path.join(rust_dir, "target/aarch64-unknown-linux-gnu/release/building-automation-controller")
+            if not os.path.exists(binary_path):
+                raise Exception(f"Binary not created at {binary_path}")
+            
+            # Make binary executable
+            os.chmod(binary_path, 0o755)
+            self.log(f"✓ Binary created successfully at {binary_path}")
+            
+        except Exception as e:
+            self.log(f"Build failed: {str(e)}")
+            raise
             
     def install_service(self):
         """Install systemd service"""
