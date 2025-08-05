@@ -1,5 +1,32 @@
 # Automata Nexus Control Center - Raspberry Pi 5 SSD Edition
 
+<div align="center">
+
+![Version](https://img.shields.io/badge/version-1.0.0--rpi5-blue.svg)
+![License](https://img.shields.io/badge/license-Commercial-red.svg)
+![Platform](https://img.shields.io/badge/platform-Raspberry%20Pi%205-green.svg)
+![OS](https://img.shields.io/badge/OS-Bookworm%2064--bit-orange.svg)
+![Storage](https://img.shields.io/badge/storage-NVMe%20SSD-purple.svg)
+
+![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)
+![Node](https://img.shields.io/badge/node-20%2B-green.svg)
+![SQLite](https://img.shields.io/badge/SQLite-3.40%2B-blue.svg)
+![Performance](https://img.shields.io/badge/performance-100x%20faster-brightgreen.svg)
+
+![BACnet](https://img.shields.io/badge/BACnet-IP%20%26%20MS/TP-orange.svg)
+![Modbus](https://img.shields.io/badge/Modbus-TCP%20%26%20RTU-blue.svg)
+![RS485](https://img.shields.io/badge/RS485-USB%20Serial-green.svg)
+![ISO](https://img.shields.io/badge/ISO-10816--3-yellow.svg)
+![ASHRAE](https://img.shields.io/badge/ASHRAE-207--2021-blue.svg)
+
+**Ultra High-Performance Building Automation for Raspberry Pi 5 with NVMe SSD**
+
+[Features](#key-optimizations) • [Installation](#installation) • [Benchmarks](#performance-benchmarks) • [Monitoring](#monitoring)
+
+</div>
+
+---
+
 ## Overview
 This is an optimized version of the Automata Nexus Automation Control Center specifically designed for Raspberry Pi 5 running Bookworm 64-bit with a 1TB NVMe SSD connected via PCIe HAT.
 
