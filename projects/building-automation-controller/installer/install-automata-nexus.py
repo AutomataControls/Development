@@ -613,8 +613,15 @@ For licensing inquiries, contact: licensing@automatanexus.com
             self.run_command(["/root/.cargo/bin/rustup", "target", "add", "aarch64-unknown-linux-gnu"])
             
             # Build for ARM64
+            # Set required environment variables for cross-compilation
+            build_env = os.environ.copy()
+            build_env["CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER"] = "aarch64-linux-gnu-gcc"
+            build_env["CC_aarch64_unknown_linux_gnu"] = "aarch64-linux-gnu-gcc"
+            build_env["CXX_aarch64_unknown_linux_gnu"] = "aarch64-linux-gnu-g++"
+            
+            # Build with cargo - the build.rs will handle Tauri setup
             self.run_command(["/root/.cargo/bin/cargo", "build", "--release", 
-                            "--target", "aarch64-unknown-linux-gnu"])
+                            "--target", "aarch64-unknown-linux-gnu"], env=build_env)
             
             # Verify binary was created
             binary_path = os.path.join(rust_dir, "target/aarch64-unknown-linux-gnu/release/building-automation-controller")
@@ -716,7 +723,7 @@ WantedBy=multi-user.target
             # GUI might be closed, just continue
             pass
         
-    def run_command(self, cmd, cwd=None):
+    def run_command(self, cmd, cwd=None, env=None):
         """Run shell command and log output"""
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
@@ -726,8 +733,8 @@ WantedBy=multi-user.target
         self.log(f"Running: {cmd_str}")
         
         # For long-running commands like cargo build, stream output
-        if "cargo build" in cmd_str:
-            process = subprocess.Popen(cmd_str, shell=True, cwd=cwd, 
+        if "cargo build" in cmd_str or "cargo tauri" in cmd_str:
+            process = subprocess.Popen(cmd_str, shell=True, cwd=cwd, env=env,
                                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                      text=True, bufsize=1)
             
@@ -750,7 +757,7 @@ WantedBy=multi-user.target
             return '\n'.join(output)
         else:
             # For shorter commands, use the original method
-            result = subprocess.run(cmd_str, shell=True, cwd=cwd, 
+            result = subprocess.run(cmd_str, shell=True, cwd=cwd, env=env,
                                   capture_output=True, text=True)
             
             # Log any stderr output as warnings
