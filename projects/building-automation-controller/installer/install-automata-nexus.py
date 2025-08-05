@@ -672,12 +672,21 @@ WantedBy=multi-user.target
         """Add message to log window"""
         timestamp = time.strftime("%H:%M:%S")
         log_message = f"[{timestamp}] {message}\n"
-        self.root.after(0, lambda: [
-            self.log_text.config(state=tk.NORMAL),
-            self.log_text.insert(tk.END, log_message),
-            self.log_text.see(tk.END),
-            self.log_text.update()
-        ])
+        
+        # Also log to file
+        with open(self.log_file, 'a') as f:
+            f.write(log_message)
+        
+        # Update GUI if it exists
+        try:
+            self.log_text.config(state=tk.NORMAL)
+            self.log_text.insert(tk.END, log_message)
+            self.log_text.see(tk.END)
+            self.log_text.config(state=tk.DISABLED)
+            self.root.update_idletasks()
+        except:
+            # GUI might be closed, just continue
+            pass
         
     def run_command(self, cmd, cwd=None):
         """Run shell command and log output"""
