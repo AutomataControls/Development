@@ -279,8 +279,9 @@ For licensing inquiries, contact: licensing@automatanexus.com
             self.root.after(0, self.installation_complete)
             
         except Exception as e:
-            self.log(f"\nERROR: Installation failed - {str(e)}")
-            self.root.after(0, lambda: messagebox.showerror("Installation Failed", str(e)))
+            error_msg = str(e)
+            self.log(f"\nERROR: Installation failed - {error_msg}")
+            self.root.after(0, lambda msg=error_msg: messagebox.showerror("Installation Failed", msg))
             
     def update_system(self):
         """Update system packages"""
