@@ -312,6 +312,17 @@ For licensing inquiries, contact: licensing@automatanexus.com
         self.log_text = scrolledtext.ScrolledText(install_frame, height=12, width=90, wrap=tk.WORD)
         self.log_text.pack(padx=20, pady=(5, 20))
         
+        # Make log text selectable and copyable
+        self.log_text.config(state=tk.NORMAL)
+        self.log_text.bind("<Control-a>", lambda e: self.log_text.tag_add("sel", "1.0", "end"))
+        self.log_text.bind("<Control-c>", lambda e: self.copy_selection())
+        
+        # Add right-click context menu
+        self.context_menu = tk.Menu(self.root, tearoff=0)
+        self.context_menu.add_command(label="Copy", command=self.copy_selection)
+        self.context_menu.add_command(label="Select All", command=lambda: self.log_text.tag_add("sel", "1.0", "end"))
+        self.log_text.bind("<Button-3>", self.show_context_menu)
+        
         # Start installation in thread
         self.install_thread = threading.Thread(target=self.run_installation)
         self.install_thread.start()
@@ -630,6 +641,7 @@ WantedBy=multi-user.target
         timestamp = time.strftime("%H:%M:%S")
         log_message = f"[{timestamp}] {message}\n"
         self.root.after(0, lambda: [
+            self.log_text.config(state=tk.NORMAL),
             self.log_text.insert(tk.END, log_message),
             self.log_text.see(tk.END),
             self.log_text.update()
@@ -669,6 +681,23 @@ WantedBy=multi-user.target
         if messagebox.askyesno("Cancel Installation", 
                              "Are you sure you want to cancel the installation?"):
             self.root.quit()
+    
+    def copy_selection(self):
+        """Copy selected text to clipboard"""
+        try:
+            text = self.log_text.get("sel.first", "sel.last")
+            self.root.clipboard_clear()
+            self.root.clipboard_append(text)
+        except tk.TclError:
+            # No selection
+            pass
+    
+    def show_context_menu(self, event):
+        """Show right-click context menu"""
+        try:
+            self.context_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.context_menu.grab_release()
             
     def run(self):
         """Run the installer"""
