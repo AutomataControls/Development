@@ -1,0 +1,169 @@
+name: Build Pre-compiled Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build-pi4-release:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-gnu
+            arch: arm64
+            name: pi4
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install ARM64 cross-compilation tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: Setup Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        target: ${{ matrix.target }}
+        
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        
+    - name: Cache cargo index
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+        
+    - name: Cache cargo build
+      uses: actions/cache@v3
+      with:
+        path: src-tauri/target
+        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+        
+    - name: Install dependencies
+      run: |
+        sudo apt-get install -y libwebkit2gtk-4.0-dev \
+          libssl-dev \
+          libgtk-3-dev \
+          libayatana-appindicator3-dev \
+          librsvg2-dev
+          
+    - name: Build frontend
+      run: |
+        npm ci
+        npm run build
+        
+    - name: Build Rust binary
+      run: |
+        cd src-tauri
+        export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+        export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+        export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
+        cargo build --release --target ${{ matrix.target }}
+        
+    - name: Create release package
+      run: |
+        VERSION=${{ github.event.inputs.version || github.ref_name }}
+        VERSION=${VERSION#v}  # Remove 'v' prefix if present
+        
+        RELEASE_DIR="automata-nexus-${{ matrix.name }}-${VERSION}"
+        mkdir -p "${RELEASE_DIR}/app"
+        
+        # Copy essential files
+        rsync -av --progress \
+          --exclude 'node_modules' \
+          --exclude '.git' \
+          --exclude '.github' \
+          --exclude 'target' \
+          --exclude '*.log' \
+          . "${RELEASE_DIR}/app/"
+          
+        # Copy pre-built assets
+        cp -r out "${RELEASE_DIR}/app/" || true
+        cp -r .next "${RELEASE_DIR}/app/" || true
+        
+        # Copy binary
+        mkdir -p "${RELEASE_DIR}/app/src-tauri/target/${{ matrix.target }}/release"
+        cp "src-tauri/target/${{ matrix.target }}/release/building-automation-controller" \
+           "${RELEASE_DIR}/app/src-tauri/target/${{ matrix.target }}/release/"
+           
+        # Strip binary to reduce size
+        aarch64-linux-gnu-strip "${RELEASE_DIR}/app/src-tauri/target/${{ matrix.target }}/release/building-automation-controller"
+        
+        # Copy quick installer
+        cp scripts/create-release.sh "${RELEASE_DIR}/" || echo "No release script found"
+        
+        # Create archive
+        tar -czf "automata-nexus-${{ matrix.name }}-${VERSION}-precompiled.tar.gz" "${RELEASE_DIR}"
+        
+        # Generate checksums
+        sha256sum "automata-nexus-${{ matrix.name }}-${VERSION}-precompiled.tar.gz" > "automata-nexus-${{ matrix.name }}-${VERSION}-precompiled.tar.gz.sha256"
+        
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: release-${{ matrix.name }}
+        path: |
+          automata-nexus-${{ matrix.name }}-*.tar.gz
+          automata-nexus-${{ matrix.name }}-*.tar.gz.sha256
+          
+  create-release:
+    needs: build-pi4-release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          release-*/*.tar.gz
+          release-*/*.tar.gz.sha256
+        body: |
+          # Automata Nexus Control Center - Pre-compiled Release
+          
+          ## 🚀 Quick Installation (5 minutes!)
+          
+          Download the appropriate file for your Raspberry Pi and extract:
+          ```bash
+          tar -xzf automata-nexus-pi4-*.tar.gz
+          cd automata-nexus-pi4-*/
+          sudo python3 quick-install.py
+          ```
+          
+          ## 📦 What's New
+          - Pre-compiled binaries - installs in 5 minutes instead of 40+
+          - BACnet/Modbus protocol support
+          - Enhanced metrics visualization
+          - Improved error handling
+          
+          ## 🔧 System Requirements
+          - Raspberry Pi 4 (2GB+ RAM)
+          - Raspberry Pi OS Bullseye 64-bit
+          - Internet connection for driver downloads
+          
+          ## 📊 File Checksums
+          Verify your download with the included `.sha256` files.

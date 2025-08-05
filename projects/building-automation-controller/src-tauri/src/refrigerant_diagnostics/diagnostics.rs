@@ -3,7 +3,6 @@
 
 use serde::{Deserialize, Serialize};
 use crate::refrigerant_diagnostics::refrigerants::{RefrigerantDatabase};
-use crate::refrigerant_diagnostics::p499_transducer::TransducerReading;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemConfiguration {
@@ -99,8 +98,8 @@ impl DiagnosticEngine {
         config: &SystemConfiguration,
         reading: &DiagnosticReading,
     ) -> Result<DiagnosticResult, String> {
-        // Get refrigerant properties
-        let refrigerant = self.refrigerant_db
+        // Verify refrigerant exists
+        let _refrigerant = self.refrigerant_db
             .get_refrigerant(&config.refrigerant_type)
             .ok_or("Unknown refrigerant type")?;
         
