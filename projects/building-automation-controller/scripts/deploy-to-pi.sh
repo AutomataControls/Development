@@ -8,43 +8,60 @@ set -e
 PI_HOST="${1:-pi@raspberrypi.local}"
 PI_DIR="/home/Automata/building-automation"
 BUILD_TYPE="${2:-release}"
+ARCH="${3:-aarch64}"
 
 echo "========================================"
 echo "Building Automation Controller Deploy"
 echo "Deploying to: $PI_HOST"
 echo "Target directory: $PI_DIR"
 echo "Build type: $BUILD_TYPE"
+echo "Architecture: $ARCH (64-bit Bullseye)"
 echo "========================================"
 
-# Step 1: Build the Tauri app
+# Step 1: Build the Next.js app
 echo ""
-echo "Step 1: Building Tauri application..."
-cd ../src-tauri
+echo "Step 1: Building Next.js application..."
+npm run build
+
+# Step 2: Build the Tauri app
+echo ""
+echo "Step 2: Building Tauri application..."
+cd src-tauri
+
+# Detect target architecture
+ARCH="${3:-aarch64}"
+if [ "$ARCH" == "aarch64" ]; then
+    TARGET="aarch64-unknown-linux-gnu"
+    echo "Building for 64-bit ARM (aarch64)..."
+else
+    TARGET="armv7-unknown-linux-gnueabihf"
+    echo "Building for 32-bit ARM (armv7)..."
+fi
 
 # Build for ARM
 if [ "$BUILD_TYPE" == "release" ]; then
     echo "Building optimized release version..."
-    cargo build --release --target armv7-unknown-linux-gnueabihf
-    BINARY_PATH="target/armv7-unknown-linux-gnueabihf/release/building-automation-controller"
+    cargo build --release --target $TARGET
+    BINARY_PATH="target/$TARGET/release/building-automation-controller"
 else
     echo "Building debug version..."
-    cargo build --target armv7-unknown-linux-gnueabihf
-    BINARY_PATH="target/armv7-unknown-linux-gnueabihf/debug/building-automation-controller"
+    cargo build --target $TARGET
+    BINARY_PATH="target/$TARGET/debug/building-automation-controller"
 fi
 
 cd ..
 
-# Step 2: Create deployment package
+# Step 3: Create deployment package
 echo ""
-echo "Step 2: Creating deployment package..."
+echo "Step 3: Creating deployment package..."
 rm -rf deploy-package
 mkdir -p deploy-package
 
 # Copy binary
 cp "src-tauri/$BINARY_PATH" deploy-package/
 
-# Copy UI files
-cp -r src deploy-package/
+# Copy UI files (Next.js build output)
+cp -r out deploy-package/
 
 # Copy Python interface
 cp scripts/megabas_interface.py deploy-package/
@@ -53,8 +70,8 @@ cp scripts/megabas_interface.py deploy-package/
 cat > deploy-package/run-controller.sh << 'EOF'
 #!/bin/bash
 
-echo "Building Automation Controller"
-echo "============================="
+echo "Automata Nexus Automation Control Center"
+echo "========================================"
 
 # Check for MegaBAS HAT
 echo ""
@@ -87,7 +104,7 @@ chmod +x deploy-package/run-controller.sh
 # Create systemd service
 cat > deploy-package/building-automation.service << EOF
 [Unit]
-Description=Building Automation Controller
+Description=Automata Nexus Automation Control Center
 After=network.target
 
 [Service]
@@ -112,7 +129,7 @@ EOF
 cat > deploy-package/setup-pi.sh << 'EOF'
 #!/bin/bash
 
-echo "Setting up Building Automation Controller..."
+echo "Setting up Automata Nexus Automation Control Center..."
 
 # Enable I2C
 echo "Enabling I2C interface..."

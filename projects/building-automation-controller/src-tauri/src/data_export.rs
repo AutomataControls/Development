@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BMSConfig {
@@ -34,6 +35,22 @@ pub struct ProcessingConfig {
 pub struct ExportConfigs {
     pub bms: Option<BMSConfig>,
     pub processing: Option<ProcessingConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProcessingEngineCommand {
+    pub timestamp: String,
+    pub equipment_id: String,
+    pub location_id: String,
+    pub command_type: String,
+    pub command_data: serde_json::Value,
+}
+
+#[derive(Debug, Clone)]
+pub struct CommandFetcher {
+    last_fetch: Option<Instant>,
+    cached_commands: Vec<ProcessingEngineCommand>,
+    cache_duration: Duration,
 }
 
 fn get_config_path() -> PathBuf {
@@ -226,6 +243,137 @@ async fn send_processing_metrics(
     }
     
     Ok(())
+}
+
+impl CommandFetcher {
+    pub fn new() -> Self {
+        CommandFetcher {
+            last_fetch: None,
+            cached_commands: Vec::new(),
+            cache_duration: Duration::from_secs(30), // Cache for 30 seconds
+        }
+    }
+    
+    pub async fn fetch_commands(
+        &mut self,
+        equipment_id: &str,
+        location_id: &str,
+        bms_config: &BMSConfig,
+    ) -> Result<Vec<ProcessingEngineCommand>, String> {
+        // Check cache
+        if let Some(last_fetch) = self.last_fetch {
+            if last_fetch.elapsed() < self.cache_duration && !self.cached_commands.is_empty() {
+                return Ok(self.cached_commands.clone());
+            }
+        }
+        
+        // Build SQL query
+        let query = format!(
+            r#"
+            SELECT *
+            FROM "ProcessingEngineCommands"
+            WHERE equipment_id = '{}'
+              AND location_id = '{}'
+              AND time >= now() - INTERVAL '5 minutes'
+            ORDER BY time DESC
+            LIMIT 35
+            "#,
+            equipment_id, location_id
+        );
+        
+        // Send request to InfluxDB
+        let client = reqwest::Client::new();
+        let response = client
+            .post("http://143.198.162.31:8205/api/v3/query_sql")
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json")
+            .json(&serde_json::json!({
+                "q": query,
+                "db": "AggregatedProcessingEngineCommands"
+            }))
+            .timeout(Duration::from_secs(5))
+            .send()
+            .await
+            .map_err(|e| format!("Failed to fetch commands: {}", e))?;
+        
+        if !response.status().is_success() {
+            return Err(format!("Server returned error: {}", response.status()));
+        }
+        
+        let result: serde_json::Value = response.json().await
+            .map_err(|e| format!("Failed to parse response: {}", e))?;
+        
+        // Parse commands from response
+        let commands = parse_influx_commands(result)?;
+        
+        // Update cache
+        self.cached_commands = commands.clone();
+        self.last_fetch = Some(Instant::now());
+        
+        Ok(commands)
+    }
+}
+
+fn parse_influx_commands(result: serde_json::Value) -> Result<Vec<ProcessingEngineCommand>, String> {
+    let mut commands = Vec::new();
+    
+    if let Some(rows) = result.get("rows").and_then(|r| r.as_array()) {
+        for row in rows {
+            if let Some(obj) = row.as_object() {
+                let command = ProcessingEngineCommand {
+                    timestamp: obj.get("time")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    equipment_id: obj.get("equipment_id")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    location_id: obj.get("location_id")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    command_type: obj.get("command_type")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    command_data: obj.get("command_data")
+                        .unwrap_or(&serde_json::Value::Null)
+                        .clone(),
+                };
+                commands.push(command);
+            }
+        }
+    }
+    
+    Ok(commands)
+}
+
+#[tauri::command]
+pub async fn fetch_processing_commands(
+    equipment_id: String,
+    location_id: String,
+) -> Result<Vec<ProcessingEngineCommand>, String> {
+    // Get BMS config to check if connected
+    let configs = get_export_configs().await?;
+    
+    if let Some(bms_config) = configs.bms {
+        if bms_config.enabled {
+            // Try to fetch from server
+            let mut fetcher = CommandFetcher::new();
+            match fetcher.fetch_commands(&equipment_id, &location_id, &bms_config).await {
+                Ok(commands) => return Ok(commands),
+                Err(e) => {
+                    // Log error but continue to fallback
+                    eprintln!("Failed to fetch commands from server: {}", e);
+                }
+            }
+        }
+    }
+    
+    // Fallback to local logic file
+    // This will be handled by the logic engine
+    Err("BMS not connected, use local logic file".to_string())
 }
 
 #[tauri::command]
