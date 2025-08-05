@@ -571,7 +571,17 @@ For licensing inquiries, contact: licensing@automatanexus.com
         self.log("Copying application files...")
         if os.path.exists(f"{self.install_path}/app"):
             shutil.rmtree(f"{self.install_path}/app")
-        shutil.copytree(app_source, f"{self.install_path}/app", dirs_exist_ok=True)
+        
+        # Copy everything except node_modules and other build artifacts
+        def ignore_patterns(path, names):
+            ignore = []
+            for name in names:
+                if name in ['node_modules', '.next', 'out', 'target', '.git', '__pycache__']:
+                    ignore.append(name)
+            return ignore
+            
+        shutil.copytree(app_source, f"{self.install_path}/app", 
+                       ignore=ignore_patterns, dirs_exist_ok=True)
         
         # Build the application
         self.log("Building application...")
@@ -579,6 +589,13 @@ For licensing inquiries, contact: licensing@automatanexus.com
         os.chdir(build_dir)
         
         try:
+            # Clean any existing build artifacts
+            self.log("Cleaning build artifacts...")
+            for cleanup_dir in ['node_modules', '.next', 'out']:
+                cleanup_path = os.path.join(build_dir, cleanup_dir)
+                if os.path.exists(cleanup_path):
+                    shutil.rmtree(cleanup_path)
+                    
             # Install npm dependencies
             self.log("Installing Node.js dependencies...")
             self.run_command(["npm", "install"])
