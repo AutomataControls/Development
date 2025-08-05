@@ -40,6 +40,7 @@ class AutomataNexusInstaller:
         # Installation paths
         self.install_path = "/opt/automata-nexus"
         self.service_name = "automata-nexus-control-center"
+        self.log_file = "/var/log/automata-nexus-installer.log"
         
         # Components to install
         self.components = [
