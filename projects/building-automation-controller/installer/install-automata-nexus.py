@@ -98,18 +98,26 @@ class AutomataNexusInstaller:
                 "/home/Automata/Development/projects/building-automation-controller/public/images/automata-nexus-logo.png"
             ]
             
+            self.log("Checking logo paths:")
             for logo_path in logo_paths:
-                if os.path.exists(logo_path):
-                    self.log(f"Loading logo from: {logo_path}")
-                    logo_img = Image.open(logo_path)
-                    logo_img = logo_img.resize((64, 64), Image.Resampling.LANCZOS)
-                    logo_photo = ImageTk.PhotoImage(logo_img)
-                    
-                    # Update the existing logo label
-                    self.logo_label.configure(image=logo_photo, text="")
-                    self.logo_label.image = logo_photo  # Keep a reference
-                    self.log("✓ Logo updated successfully")
-                    return
+                exists = os.path.exists(logo_path)
+                self.log(f"  {logo_path} -> exists: {exists}")
+                if exists:
+                    try:
+                        self.log(f"Loading logo from: {logo_path}")
+                        logo_img = Image.open(logo_path)
+                        logo_img = logo_img.resize((64, 64), Image.Resampling.LANCZOS)
+                        logo_photo = ImageTk.PhotoImage(logo_img)
+                        
+                        # Update the existing logo label
+                        self.logo_label.configure(image=logo_photo, text="")
+                        self.logo_label.image = logo_photo  # Keep a reference
+                        self.root.update()  # Force GUI update
+                        self.log("✓ Logo updated successfully")
+                        return
+                    except Exception as img_e:
+                        self.log(f"Error loading image {logo_path}: {str(img_e)}")
+                        continue
                     
         except Exception as e:
             self.log(f"Could not update logo: {str(e)}")
@@ -374,7 +382,11 @@ For licensing inquiries, contact: licensing@automatanexus.com
         self.run_command(["apt-get", "install", "-y"] + packages)
         
         # Now that PIL is installed, try to load the actual logo
+        self.log("Attempting to update logo after installing PIL...")
         self.update_logo()
+        
+        # Also try again after a short delay
+        self.root.after(1000, self.update_logo)
         
     def install_python_libs(self):
         """Install Python libraries"""
