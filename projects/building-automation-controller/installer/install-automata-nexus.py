@@ -693,7 +693,7 @@ WantedBy=multi-user.target
         self.root.after(0, lambda: [
             self.status_label.config(text=f"Installing: {status} ({self.current_step}/{self.total_steps})"),
             self.overall_progress.config(value=progress),
-            self.component_label.config(text=f"Current Component: {status}")
+            self.component_label.config(text=f"Current Component: {status} ({self.current_step}/{self.total_steps})")
         ])
         
     def log(self, message):
