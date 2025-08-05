@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Automata Nexus Installer Creator - Creates installation media for Raspberry Pi
+Automata Nexus Installation Media Creator
+Creates SD cards and USB drives with the installer and all components
 Copyright (c) 2024 Automata Nexus. All rights reserved.
 """
 
@@ -41,25 +42,38 @@ class InstallerCreator:
         self.setup_ui()
         
     def setup_ui(self):
-        # Header with gradient effect
-        header_frame = tk.Frame(self.root, bg="#1e3a8a", height=120)
+        # Header with dark theme to match installer
+        header_frame = tk.Frame(self.root, bg="#1a1a1a", height=120)
         header_frame.pack(fill=tk.X)
         header_frame.pack_propagate(False)
         
-        # Logo and title
-        logo_frame = tk.Frame(header_frame, bg="#1e3a8a")
+        # Logo and title - matching the actual installer
+        logo_frame = tk.Frame(header_frame, bg="#1a1a1a")
         logo_frame.pack(expand=True)
         
-        tk.Label(logo_frame, text="🏭", font=("Arial", 48), 
-                bg="#1e3a8a", fg="white").pack(side=tk.LEFT, padx=10)
+        # Try to load actual logo
+        try:
+            from PIL import Image, ImageTk
+            logo_path = os.path.join(os.path.dirname(__file__), "public", "automata-nexus-logo.png")
+            if os.path.exists(logo_path):
+                img = Image.open(logo_path)
+                img = img.resize((48, 48), Image.Resampling.LANCZOS)
+                self.logo = ImageTk.PhotoImage(img)
+                tk.Label(logo_frame, image=self.logo, bg="#1a1a1a").pack(side=tk.LEFT, padx=10)
+            else:
+                tk.Label(logo_frame, text="🏭", font=("Arial", 48), 
+                        bg="#1a1a1a", fg="white").pack(side=tk.LEFT, padx=10)
+        except:
+            tk.Label(logo_frame, text="🏭", font=("Arial", 48), 
+                    bg="#1a1a1a", fg="white").pack(side=tk.LEFT, padx=10)
         
-        title_frame = tk.Frame(logo_frame, bg="#1e3a8a")
+        title_frame = tk.Frame(logo_frame, bg="#1a1a1a")
         title_frame.pack(side=tk.LEFT)
         
-        tk.Label(title_frame, text="Automata Nexus", 
-                font=("Arial", 24, "bold"), bg="#1e3a8a", fg="white").pack(anchor=tk.W)
+        tk.Label(title_frame, text="Automata Nexus Control Center", 
+                font=("Arial", 24, "bold"), bg="#1a1a1a", fg="white").pack(anchor=tk.W)
         tk.Label(title_frame, text="Installation Media Creator", 
-                font=("Arial", 14), bg="#1e3a8a", fg="#93c5fd").pack(anchor=tk.W)
+                font=("Arial", 14), bg="#1a1a1a", fg="#00ff00").pack(anchor=tk.W)
         
         # Main content
         main_frame = tk.Frame(self.root, bg="#f3f4f6")
@@ -141,7 +155,7 @@ class InstallerCreator:
         button_frame.pack(fill=tk.X, pady=10)
         
         tk.Button(button_frame, text="Create Installation Media", 
-                 command=self.create_media, bg="#10b981", fg="white", 
+                 command=self.create_media, bg="#00aa00", fg="white", 
                  font=("Arial", 12, "bold"), padx=20, pady=10).pack(side=tk.RIGHT)
         
         tk.Button(button_frame, text="Exit", command=self.root.quit,
