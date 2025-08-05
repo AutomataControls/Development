@@ -2,6 +2,8 @@
 
 <div align="center">
 
+<img src="public/automata-nexus-logo.png" alt="Automata Nexus Logo" width="400">
+
 ![Version](https://img.shields.io/badge/version-1.0.0--rpi5-blue.svg)
 ![License](https://img.shields.io/badge/license-Commercial-red.svg)
 ![Platform](https://img.shields.io/badge/platform-Raspberry%20Pi%205-green.svg)
