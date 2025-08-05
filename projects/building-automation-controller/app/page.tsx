@@ -641,7 +641,7 @@ export default function BuildingAutomationPreview() {
 
           <TabsContent value="io-control" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {currentBoard?.capabilities?.analog_outputs > 0 && (
+              {currentBoard?.capabilities?.analog_outputs && currentBoard.capabilities.analog_outputs > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -665,7 +665,7 @@ export default function BuildingAutomationPreview() {
                 </Card>
               )}
 
-              {currentBoard?.capabilities?.triacs > 0 && (
+              {currentBoard?.capabilities?.triacs && currentBoard.capabilities.triacs > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
