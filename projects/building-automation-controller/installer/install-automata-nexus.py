@@ -55,17 +55,27 @@ class AutomataNexusInstaller:
         self.setup_ui()
         
     def setup_ui(self):
-        # Header with logo
-        header_frame = tk.Frame(self.root, bg="#1e3a8a", height=120)
+        # Header with logo - using your brand colors
+        header_frame = tk.Frame(self.root, bg="#000000", height=120)
         header_frame.pack(fill=tk.X)
         header_frame.pack_propagate(False)
         
-        # Logo placeholder (in real implementation, load actual logo)
-        logo_label = tk.Label(header_frame, text="🏭", font=("Arial", 48), bg="#1e3a8a", fg="white")
-        logo_label.pack(pady=10)
+        # Try to load actual logo, fallback to text
+        try:
+            from PIL import Image, ImageTk
+            logo_img = Image.open("public/automata-nexus-logo.png")
+            logo_img = logo_img.resize((64, 64), Image.Resampling.LANCZOS)
+            logo_photo = ImageTk.PhotoImage(logo_img)
+            logo_label = tk.Label(header_frame, image=logo_photo, bg="#000000")
+            logo_label.image = logo_photo  # Keep a reference
+            logo_label.pack(pady=10)
+        except:
+            # Fallback to text logo
+            logo_label = tk.Label(header_frame, text="⚡", font=("Arial", 48), bg="#000000", fg="#00ff00")
+            logo_label.pack(pady=10)
         
         title_label = tk.Label(header_frame, text="Automata Nexus Automation Control Center", 
-                              font=("Arial", 18, "bold"), bg="#1e3a8a", fg="white")
+                              font=("Arial", 18, "bold"), bg="#000000", fg="#00ff00")
         title_label.pack()
         
         # Main content

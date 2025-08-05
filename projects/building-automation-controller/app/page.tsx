@@ -446,7 +446,7 @@ export default function BuildingAutomationPreview() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -476,7 +476,7 @@ export default function BuildingAutomationPreview() {
         </div>
 
         {/* System Status Bar */}
-        <Card className="mb-6 bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
+        <Card className="mb-6 bg-gradient-to-r from-green-50 to-gray-50 border-green-200">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-6">
@@ -620,7 +620,7 @@ export default function BuildingAutomationPreview() {
                               )}
                             </div>
                             <div className="text-right">
-                              <div className="text-lg font-bold text-blue-600">{value.toFixed(2)}V</div>
+                              <div className="text-lg font-bold text-green-600">{value.toFixed(2)}V</div>
                               <div className="text-xs text-gray-500">{getScaledValue("universal_input", i, value)}</div>
                             </div>
                             {config?.input_type !== "digital" && <Progress value={value * 10} className="h-2 mt-2" />}
@@ -696,9 +696,9 @@ export default function BuildingAutomationPreview() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <h4 className="font-semibold text-blue-800 mb-2">Board Configuration Ready</h4>
-                  <p className="text-sm text-blue-700">
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 mb-2">Board Configuration Ready</h4>
+                  <p className="text-sm text-gray-700">
                     Universal inputs configured and ready for BMS command integration. Configure channel names, scaling,
                     and sensor types.
                   </p>
@@ -719,9 +719,9 @@ export default function BuildingAutomationPreview() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <h4 className="font-semibold text-blue-800 mb-2">BMS Command Integration Active</h4>
-                  <p className="text-sm text-blue-700">
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <h4 className="font-semibold text-green-800 mb-2">BMS Command Integration Active</h4>
+                  <p className="text-sm text-green-700">
                     System is querying BMS server for commands every 30 seconds. Local logic files serve as fallback
                     when BMS is unavailable.
                   </p>
