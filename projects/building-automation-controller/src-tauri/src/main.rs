@@ -1566,6 +1566,106 @@ async fn set_megabas_triac(stack: u8, channel: u8, state: bool) -> Result<(), St
     }
 }
 
+// MegaBAS input configuration functions
+async fn configure_megabas_input_type(stack: u8, channel: u8, input_type: u8) -> Result<(), String> {
+    // input_type: 0 = 0-10V, 1 = 1K Thermistor/Dry contact, 2 = 10K Thermistor
+    let output = Command::new("megabas")
+        .arg(stack.to_string())
+        .arg("incfgwr")
+        .arg(channel.to_string())
+        .arg(input_type.to_string())
+        .output()
+        .map_err(|e| format!("Failed to execute command: {}", e))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Failed to configure input type: {}", stderr))
+    }
+}
+
+async fn read_megabas_input_type(stack: u8, channel: u8) -> Result<u8, String> {
+    let output = Command::new("megabas")
+        .arg(stack.to_string())
+        .arg("incfgrd")
+        .arg(channel.to_string())
+        .output()
+        .map_err(|e| format!("Failed to execute command: {}", e))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        // Parse the output to get the input type value
+        stdout.trim()
+            .split_whitespace()
+            .last()
+            .and_then(|s| s.parse::<u8>().ok())
+            .ok_or_else(|| "Failed to parse input type".to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Failed to read input type: {}", stderr))
+    }
+}
+
+// Input configuration commands
+#[tauri::command]
+async fn configure_input_type(
+    board_id: String,
+    channel: u8,
+    input_type: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let board = {
+        let boards = state.boards.lock().unwrap();
+        boards.get(&board_id).cloned().ok_or("Board not found")?
+    };
+
+    // Only MegaBAS supports software configurable inputs
+    if board.board_type != "SM-I-002 Building Automation" {
+        return Err("Board does not support software configurable inputs".to_string());
+    }
+
+    // Convert input type string to value
+    let type_value = match input_type.as_str() {
+        "0-10V" => 0,
+        "1K_thermistor" => 1,
+        "dry_contact" => 1,
+        "10K_thermistor" => 2,
+        "thermistor_10k_type2" => 2,
+        _ => return Err(format!("Unknown input type: {}", input_type)),
+    };
+
+    configure_megabas_input_type(board.stack_level, channel, type_value).await
+}
+
+#[tauri::command]
+async fn get_input_type(
+    board_id: String,
+    channel: u8,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, String> {
+    let board = {
+        let boards = state.boards.lock().unwrap();
+        boards.get(&board_id).cloned().ok_or("Board not found")?
+    };
+
+    // Only MegaBAS supports software configurable inputs
+    if board.board_type != "SM-I-002 Building Automation" {
+        return Err("Board does not support software configurable inputs".to_string());
+    }
+
+    let type_value = read_megabas_input_type(board.stack_level, channel).await?;
+    
+    let input_type = match type_value {
+        0 => "0-10V",
+        1 => "1K_thermistor",
+        2 => "10K_thermistor",
+        _ => "unknown",
+    };
+
+    Ok(input_type.to_string())
+}
+
 // Maintenance Mode Commands
 #[tauri::command]
 async fn enable_maintenance_mode(
@@ -1829,6 +1929,9 @@ async fn main() {
             save_processing_config,
             get_bms_config,
             get_processing_config,
+            // Input configuration
+            configure_input_type,
+            get_input_type,
             // Firmware management
             check_firmware_repos,
             clone_firmware_repo,

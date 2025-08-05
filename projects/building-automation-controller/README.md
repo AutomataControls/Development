@@ -5,7 +5,10 @@ A comprehensive Tauri-based control system for Sequent Microsystems building aut
 ## Features
 
 - **MegaBAS HAT Control**
-  - 8x 0-10V analog inputs with thermistor support
+  - 8x Universal inputs (software configurable):
+    - 0-10V analog input (default)
+    - 1K thermistor or dry contact
+    - 10K Type 2 thermistor with Steinhart-Hart equation
   - 4x 0-10V analog outputs
   - 4x Triac outputs
   - 4x Dry contact inputs with counters
@@ -57,10 +60,18 @@ Access the web interface at `http://raspberrypi.local:1420`
 ## Hardware Configuration
 
 ### MegaBAS HAT (Stack Level 0)
-- Channels 1-8: 0-10V inputs
+- Channels 1-8: Universal inputs (configurable as 0-10V, 1K thermistor, or 10K Type 2 thermistor)
 - Channels 1-4: 0-10V outputs
 - Triacs 1-4: AC control
 - Contacts 1-4: Dry contact inputs
+
+#### Configuring Input Types
+For MegaBAS HAT v5.0+, input types are software configurable:
+- Default: 0-10V analog input
+- Option 1: 1K thermistor or dry contact
+- Option 2: 10K Type 2 thermistor (with automatic temperature conversion)
+
+Input types can be configured through the UI or via the API.
 
 ### Expansion Boards (Stack Levels 1-7)
 Configure via the UI based on your hardware setup.
