@@ -106,7 +106,7 @@ class AutomataNexusInstaller:
                     try:
                         self.log(f"Loading logo from: {logo_path}")
                         logo_img = Image.open(logo_path)
-                        logo_img = logo_img.resize((64, 64), Image.Resampling.LANCZOS)
+                        logo_img = logo_img.resize((64, 64), Image.LANCZOS)
                         logo_photo = ImageTk.PhotoImage(logo_img)
                         
                         # Update the existing logo label
