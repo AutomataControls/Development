@@ -698,21 +698,46 @@ WantedBy=multi-user.target
             
         self.log(f"Running: {cmd_str}")
         
-        result = subprocess.run(cmd_str, shell=True, cwd=cwd, 
-                              capture_output=True, text=True)
-        
-        # Log any stderr output as warnings
-        if result.stderr:
-            for line in result.stderr.strip().split('\n'):
-                if line:
-                    self.log(f"⚠ {line}")
-        
-        # Only fail on non-zero return code
-        if result.returncode != 0:
-            error_msg = result.stderr if result.stderr else f"Command exited with code {result.returncode}"
-            raise Exception(f"Command failed: {error_msg}")
+        # For long-running commands like cargo build, stream output
+        if "cargo build" in cmd_str:
+            process = subprocess.Popen(cmd_str, shell=True, cwd=cwd, 
+                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                     text=True, bufsize=1)
             
-        return result.stdout
+            output = []
+            for line in iter(process.stdout.readline, ''):
+                if line:
+                    line = line.rstrip()
+                    output.append(line)
+                    # Log progress for cargo
+                    if "Compiling" in line or "Building" in line or "Finished" in line:
+                        self.log(f"  {line}")
+                    elif "warning:" in line:
+                        self.log(f"⚠ {line}")
+            
+            process.wait()
+            
+            if process.returncode != 0:
+                raise Exception(f"Command failed with exit code {process.returncode}")
+                
+            return '\n'.join(output)
+        else:
+            # For shorter commands, use the original method
+            result = subprocess.run(cmd_str, shell=True, cwd=cwd, 
+                                  capture_output=True, text=True)
+            
+            # Log any stderr output as warnings
+            if result.stderr:
+                for line in result.stderr.strip().split('\n'):
+                    if line:
+                        self.log(f"⚠ {line}")
+            
+            # Only fail on non-zero return code
+            if result.returncode != 0:
+                error_msg = result.stderr if result.stderr else f"Command exited with code {result.returncode}"
+                raise Exception(f"Command failed: {error_msg}")
+                
+            return result.stdout
         
     def installation_complete(self):
         """Show installation complete dialog"""
