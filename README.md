@@ -1,4 +1,4 @@
-# AutomataControls R&D Development Repository
+# AutomataNexus R&D Development Repository
 
 Central repository for all research and development projects by AutomataControls.
 
