@@ -8,7 +8,7 @@ pub mod diagnostics;
 use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 
-pub use refrigerants::{RefrigerantDatabase, RefrigerantProperties, PressureTemperatureData};
+pub use refrigerants::{RefrigerantDatabase, PressureTemperatureData};
 pub use p499_transducer::{P499Interface, P499Configuration, TransducerReading, OutputType, PressureRange};
 pub use diagnostics::{DiagnosticEngine, SystemConfiguration, DiagnosticReading, DiagnosticResult};
 

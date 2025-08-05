@@ -2,7 +2,7 @@
 // Implements ASHRAE 207-2021 and NIST FDD guidelines
 
 use serde::{Deserialize, Serialize};
-use crate::refrigerants::{RefrigerantDatabase, RefrigerantProperties};
+use crate::refrigerants::{RefrigerantDatabase};
 use crate::p499_transducer::TransducerReading;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -308,7 +308,7 @@ impl DiagnosticEngine {
     pub fn analyze_trend(
         &self,
         readings: &[DiagnosticResult],
-        time_window_hours: f32,
+        _time_window_hours: f32,
     ) -> TrendAnalysis {
         if readings.is_empty() {
             return TrendAnalysis::default();
