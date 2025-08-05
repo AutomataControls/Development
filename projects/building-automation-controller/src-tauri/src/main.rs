@@ -243,9 +243,8 @@ async fn scan_boards(state: tauri::State<'_, AppState>) -> Result<Vec<BoardInfo>
     let mut boards = Vec::new();
     let mut board_map = HashMap::new();
 
-    // Scan for different board types
+    // Scan for MegaBAS boards (stack 0-7)
     for stack in 0..8 {
-        // Check for megabas (Building Automation HAT)
         if let Ok(version) = get_megabas_version(stack).await {
             let board = BoardInfo {
                 board_type: "SM-I-002 Building Automation".to_string(),
@@ -267,31 +266,33 @@ async fn scan_boards(state: tauri::State<'_, AppState>) -> Result<Vec<BoardInfo>
             board_map.insert(format!("megabas_{}", stack), board.clone());
             boards.push(board);
         }
+    }
 
-        // Check for 8-relay board
-        if let Ok(_) = check_8relay_board(stack).await {
-            let board = BoardInfo {
-                board_type: "SM8relind 8-Relay".to_string(),
-                stack_level: stack,
-                firmware_version: "1.0".to_string(),
-                status: "Connected".to_string(),
-                capabilities: BoardCapabilities {
-                    analog_inputs: 0,
-                    analog_outputs: 0,
-                    digital_inputs: 0,
-                    digital_outputs: 0,
-                    relays: 8,
-                    triacs: 0,
-                    has_rtc: false,
-                    has_watchdog: false,
-                    has_1wire: false,
-                },
-            };
-            board_map.insert(format!("8relay_{}", stack), board.clone());
-            boards.push(board);
-        }
+    // Check for 8-relay board (only stack 1 as specified)
+    if let Ok(_) = check_8relay_board(1).await {
+        let board = BoardInfo {
+            board_type: "SM8relind 8-Relay".to_string(),
+            stack_level: 1,
+            firmware_version: "1.0".to_string(),
+            status: "Connected".to_string(),
+            capabilities: BoardCapabilities {
+                analog_inputs: 0,
+                analog_outputs: 0,
+                digital_inputs: 0,
+                digital_outputs: 0,
+                relays: 8,
+                triacs: 0,
+                has_rtc: false,
+                has_watchdog: false,
+                has_1wire: false,
+            },
+        };
+        board_map.insert("8relay_1".to_string(), board.clone());
+        boards.push(board);
+    }
 
-        // Check for 16-relay board
+    // Scan for 16-relay boards (stack 0-7)
+    for stack in 0..8 {
         if let Ok(_) = check_16relay_board(stack).await {
             let board = BoardInfo {
                 board_type: "SM16relind 16-Relay".to_string(),
@@ -313,8 +314,10 @@ async fn scan_boards(state: tauri::State<'_, AppState>) -> Result<Vec<BoardInfo>
             board_map.insert(format!("16relay_{}", stack), board.clone());
             boards.push(board);
         }
+    }
 
-        // Check for 16 universal input board
+    // Scan for 16 universal input boards (stack 0-7)
+    for stack in 0..8 {
         if let Ok(version) = check_16univin_board(stack).await {
             let board = BoardInfo {
                 board_type: "SM16univin 16 Universal Input".to_string(),
@@ -336,8 +339,10 @@ async fn scan_boards(state: tauri::State<'_, AppState>) -> Result<Vec<BoardInfo>
             board_map.insert(format!("16univin_{}", stack), board.clone());
             boards.push(board);
         }
+    }
 
-        // Check for 16 analog output board
+    // Scan for 16 analog output boards (stack 0-7)
+    for stack in 0..8 {
         if let Ok(version) = check_16uout_board(stack).await {
             let board = BoardInfo {
                 board_type: "SM16uout 16 Analog Output".to_string(),

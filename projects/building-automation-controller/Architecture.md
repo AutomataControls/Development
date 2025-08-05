@@ -187,12 +187,18 @@ async fn execute_logic(script: String) -> Result<LogicResult, String>
 ## Scaling Considerations
 
 ### Hardware Scaling
-- Stack addressing (0-7 per board type)
-- Up to 8 boards of each type
+- Independent stack addressing (0-7) for each board type
+- Board addressing scheme:
+  - MegaBAS HAT: Stack 0-7 (ID: megabas_0 to megabas_7)
+  - SM16univin: Stack 0-7 (ID: 16univin_0 to 16univin_7)
+  - SM16uout: Stack 0-7 (ID: 16uout_0 to 16uout_7)
+  - SM16relind: Stack 0-7 (ID: 16relay_0 to 16relay_7)
+  - SM8relind: Stack 1 only (ID: 8relay_1)
 - Maximum I/O points:
-  - 128 universal inputs
-  - 128 analog outputs
-  - 128 relay outputs
+  - 64 universal inputs from MegaBAS + 128 from 16univin = 192 total
+  - 32 analog outputs from MegaBAS + 128 from 16uout = 160 total
+  - 8 relays from 8relind + 128 from 16relind = 136 total relay outputs
+  - 32 triac outputs from MegaBAS boards
 
 ### Performance Optimization
 - Rust backend for speed
