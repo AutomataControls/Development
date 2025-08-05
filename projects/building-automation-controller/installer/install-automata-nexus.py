@@ -61,11 +61,24 @@ class AutomataNexusInstaller:
         header_frame.pack(fill=tk.X)
         header_frame.pack_propagate(False)
         
-        # Try to load actual logo, fallback to text
-        logo_loaded = False
-        print(f"Current working directory: {os.getcwd()}")
-        print(f"Installer file location: {os.path.abspath(__file__)}")
+        # Start with text logo, will update to image after dependencies installed
+        self.logo_label = tk.Label(header_frame, text="🏭", font=("Arial", 48), bg="#f8fafc", fg="#3b82f6")
+        self.logo_label.pack(pady=10)
         
+        # Foreground: hsl(222.2 84% 4.9%) = #0f172a
+        title_label = tk.Label(header_frame, text="Automata Nexus Automation Control Center", 
+                              font=("Arial", 18, "bold"), bg="#f8fafc", fg="#0f172a")
+        title_label.pack()
+        
+        # Main content
+        self.content_frame = tk.Frame(self.root, bg="white")
+        self.content_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Show license agreement first
+        self.show_license_agreement()
+    
+    def update_logo(self):
+        """Update the logo after PIL dependencies are installed"""
         try:
             from PIL import Image, ImageTk
             
@@ -79,45 +92,22 @@ class AutomataNexusInstaller:
                 os.path.join(os.path.dirname(os.path.abspath(__file__)), "../public/images/automata-nexus-logo.png")
             ]
             
-            print("Trying logo paths:")
             for logo_path in logo_paths:
-                abs_path = os.path.abspath(logo_path)
-                exists = os.path.exists(logo_path)
-                print(f"  {logo_path} -> {abs_path} (exists: {exists})")
-                
-                if exists:
-                    print(f"SUCCESS: Loading logo from: {logo_path}")
+                if os.path.exists(logo_path):
+                    self.log(f"Loading logo from: {logo_path}")
                     logo_img = Image.open(logo_path)
                     logo_img = logo_img.resize((64, 64), Image.Resampling.LANCZOS)
                     logo_photo = ImageTk.PhotoImage(logo_img)
-                    logo_label = tk.Label(header_frame, image=logo_photo, bg="#f8fafc")
-                    logo_label.image = logo_photo  # Keep a reference
-                    logo_label.pack(pady=10)
-                    logo_loaded = True
-                    break
+                    
+                    # Update the existing logo label
+                    self.logo_label.configure(image=logo_photo, text="")
+                    self.logo_label.image = logo_photo  # Keep a reference
+                    self.log("✓ Logo updated successfully")
+                    return
                     
         except Exception as e:
-            print(f"ERROR loading logo: {str(e)}")
-            import traceback
-            traceback.print_exc()
-        
-        if not logo_loaded:
-            print("Using fallback emoji logo")
-            # Primary color: hsl(221.2 83.2% 53.3%) = #3b82f6
-            logo_label = tk.Label(header_frame, text="🏭", font=("Arial", 48), bg="#f8fafc", fg="#3b82f6")
-            logo_label.pack(pady=10)
-        
-        # Foreground: hsl(222.2 84% 4.9%) = #0f172a
-        title_label = tk.Label(header_frame, text="Automata Nexus Automation Control Center", 
-                              font=("Arial", 18, "bold"), bg="#f8fafc", fg="#0f172a")
-        title_label.pack()
-        
-        # Main content
-        self.content_frame = tk.Frame(self.root, bg="white")
-        self.content_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # Show license agreement first
-        self.show_license_agreement()
+            self.log(f"Could not update logo: {str(e)}")
+            # Keep the text logo
         
     def show_license_agreement(self):
         # Clear content
@@ -348,6 +338,9 @@ For licensing inquiries, contact: licensing@automatanexus.com
             "python3-pil", "python3-pil.imagetk"  # For logo display in installer
         ]
         self.run_command(["apt-get", "install", "-y"] + packages)
+        
+        # Now that PIL is installed, try to load the actual logo
+        self.update_logo()
         
     def install_python_libs(self):
         """Install Python libraries"""
