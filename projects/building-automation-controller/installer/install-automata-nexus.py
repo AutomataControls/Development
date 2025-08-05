@@ -63,6 +63,9 @@ class AutomataNexusInstaller:
         
         # Try to load actual logo, fallback to text
         logo_loaded = False
+        print(f"Current working directory: {os.getcwd()}")
+        print(f"Installer file location: {os.path.abspath(__file__)}")
+        
         try:
             from PIL import Image, ImageTk
             
@@ -76,9 +79,14 @@ class AutomataNexusInstaller:
                 os.path.join(os.path.dirname(os.path.abspath(__file__)), "../public/images/automata-nexus-logo.png")
             ]
             
+            print("Trying logo paths:")
             for logo_path in logo_paths:
-                if os.path.exists(logo_path):
-                    self.log(f"Loading logo from: {logo_path}")
+                abs_path = os.path.abspath(logo_path)
+                exists = os.path.exists(logo_path)
+                print(f"  {logo_path} -> {abs_path} (exists: {exists})")
+                
+                if exists:
+                    print(f"SUCCESS: Loading logo from: {logo_path}")
                     logo_img = Image.open(logo_path)
                     logo_img = logo_img.resize((64, 64), Image.Resampling.LANCZOS)
                     logo_photo = ImageTk.PhotoImage(logo_img)
@@ -89,9 +97,12 @@ class AutomataNexusInstaller:
                     break
                     
         except Exception as e:
-            self.log(f"Could not load logo: {str(e)}")
+            print(f"ERROR loading logo: {str(e)}")
+            import traceback
+            traceback.print_exc()
         
         if not logo_loaded:
+            print("Using fallback emoji logo")
             # Primary color: hsl(221.2 83.2% 53.3%) = #3b82f6
             logo_label = tk.Label(header_frame, text="🏭", font=("Arial", 48), bg="#f8fafc", fg="#3b82f6")
             logo_label.pack(pady=10)
