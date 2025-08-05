@@ -299,7 +299,6 @@ export default function LogicEngine({ selectedBoard }: LogicEngineProps) {
                         <Switch
                           checked={logicFile.is_active}
                           onCheckedChange={(checked) => toggleLogicActive(logicFile.id, checked)}
-                          size="sm"
                         />
                         <Button
                           variant="ghost"
