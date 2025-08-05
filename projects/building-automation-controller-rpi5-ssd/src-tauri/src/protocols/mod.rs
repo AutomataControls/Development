@@ -109,8 +109,10 @@ impl ProtocolManager {
     }
 
     pub async fn add_protocol(&self, name: String, config: ProtocolConfig) -> Result<(), String> {
-        // Validate serial port exists
-        self.rs485_manager.lock().await.validate_port(&config.serial_port)?;
+        // Validate serial port exists if using serial connection
+        if let ConnectionType::Serial { port, .. } = &config.connection {
+            self.rs485_manager.lock().await.validate_port(port)?;
+        }
         
         // Store config
         self.configs.lock().await.insert(name.clone(), config.clone());
@@ -231,8 +233,21 @@ impl ProtocolManager {
         
         let mut status = HashMap::new();
         status.insert("protocol".to_string(), format!("{:?}", config.protocol_type));
-        status.insert("port".to_string(), config.serial_port.clone());
-        status.insert("baud_rate".to_string(), config.baud_rate.to_string());
+        
+        // Extract connection details based on type
+        match &config.connection {
+            ConnectionType::Serial { port, baud_rate, .. } => {
+                status.insert("connection_type".to_string(), "serial".to_string());
+                status.insert("port".to_string(), port.clone());
+                status.insert("baud_rate".to_string(), baud_rate.to_string());
+            }
+            ConnectionType::Network { ip_address, port, .. } => {
+                status.insert("connection_type".to_string(), "network".to_string());
+                status.insert("ip_address".to_string(), ip_address.clone());
+                status.insert("port".to_string(), port.to_string());
+            }
+        }
+        
         status.insert("enabled".to_string(), config.enabled.to_string());
         
         // Get protocol-specific status
