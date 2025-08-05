@@ -15,7 +15,7 @@ function Calendar({
   className,
   classNames,
   showOutsideDays = true,
-  captionLayout = "label",
+  captionLayout = "buttons" as const,
   buttonVariant = "ghost",
   formatters,
   components,
