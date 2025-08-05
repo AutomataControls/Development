@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { invoke } from "@tauri-apps/api/tauri"
+// Dynamic import for Tauri - will be null in web mode
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -110,9 +110,14 @@ export default function BmsIntegration({ boardId }: BmsIntegrationProps) {
 
   const loadBmsConfig = async () => {
     try {
-      const savedConfig: BmsConfig | null = await invoke("get_bms_config", { boardId })
-      if (savedConfig) {
-        setConfig(savedConfig)
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        const savedConfig: BmsConfig | null = await invoke("get_bms_config", { boardId })
+        if (savedConfig) {
+          setConfig(savedConfig)
+        }
+      } else {
+        console.log("Web mode: BMS config loading disabled")
       }
     } catch (error) {
       console.error("Failed to load BMS config:", error)
@@ -121,8 +126,13 @@ export default function BmsIntegration({ boardId }: BmsIntegrationProps) {
 
   const loadConnectionStatus = async () => {
     try {
-      const status: BmsConnectionStatus = await invoke("get_bms_connection_status")
-      setConnectionStatus(status)
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        const status: BmsConnectionStatus = await invoke("get_bms_connection_status")
+        setConnectionStatus(status)
+      } else {
+        console.log("Web mode: BMS connection status loading disabled")
+      }
     } catch (error) {
       console.error("Failed to load connection status:", error)
     }
@@ -132,11 +142,16 @@ export default function BmsIntegration({ boardId }: BmsIntegrationProps) {
     if (!config.enabled || !config.equipment_id || !config.location_id) return
 
     try {
-      const commands: BmsCommand[] = await invoke("query_bms_commands", {
-        equipmentId: config.equipment_id,
-        locationId: config.location_id,
-      })
-      setRecentCommands(commands.slice(0, 10)) // Show last 10 commands
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        const commands: BmsCommand[] = await invoke("query_bms_commands", {
+          equipmentId: config.equipment_id,
+          locationId: config.location_id,
+        })
+        setRecentCommands(commands.slice(0, 10)) // Show last 10 commands
+      } else {
+        console.log("Web mode: BMS command querying disabled")
+      }
     } catch (error) {
       console.error("Failed to query BMS commands:", error)
     }
@@ -145,12 +160,18 @@ export default function BmsIntegration({ boardId }: BmsIntegrationProps) {
   const testConnection = async () => {
     setIsTestingConnection(true)
     try {
-      const result: string = await invoke("test_bms_connection", {
-        equipmentId: config.equipment_id,
-        locationId: config.location_id,
-      })
-      alert(`✅ ${result}`)
-      loadConnectionStatus()
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        const result: string = await invoke("test_bms_connection", {
+          equipmentId: config.equipment_id,
+          locationId: config.location_id,
+        })
+        alert(`✅ ${result}`)
+        loadConnectionStatus()
+      } else {
+        console.log("Web mode: BMS connection testing disabled")
+        alert("BMS connection testing is only available in desktop mode")
+      }
     } catch (error) {
       alert(`❌ Connection test failed: ${error}`)
     } finally {
@@ -161,8 +182,14 @@ export default function BmsIntegration({ boardId }: BmsIntegrationProps) {
   const saveConfig = async () => {
     setIsSaving(true)
     try {
-      await invoke("save_bms_config", { boardId, config })
-      alert("BMS configuration saved successfully!")
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        await invoke("save_bms_config", { boardId, config })
+        alert("BMS configuration saved successfully!")
+      } else {
+        console.log("Web mode: BMS config saving disabled")
+        alert("BMS configuration saving is only available in desktop mode")
+      }
     } catch (error) {
       alert(`Failed to save configuration: ${error}`)
     } finally {

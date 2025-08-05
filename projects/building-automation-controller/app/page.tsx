@@ -160,10 +160,16 @@ export default function BuildingAutomationPreview() {
   const storeMetrics = async () => {
     if (isMonitoring && boardConfigs[selectedBoard]) {
       try {
-        await invoke("store_board_metrics", {
-          boardId: selectedBoard,
-          boardConfig: boardConfigs[selectedBoard]
-        })
+        // Check if we're in Tauri environment
+        if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+          const { invoke } = await import("@tauri-apps/api/tauri");
+          await invoke("store_board_metrics", {
+            boardId: selectedBoard,
+            boardConfig: boardConfigs[selectedBoard]
+          });
+        } else {
+          console.log("Tauri not available - metrics storage disabled in web mode");
+        }
       } catch (error) {
         console.error("Failed to store metrics:", error)
       }

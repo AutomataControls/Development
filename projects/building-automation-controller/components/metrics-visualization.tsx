@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TrendingUp, TrendingDown, Activity, Clock, Database, BarChart, LineChart, Download } from "lucide-react"
-import { invoke } from "@tauri-apps/api/tauri"
+// Dynamic import for Tauri - will be null in web mode
 import {
   ResponsiveContainer,
   LineChart as RechartsLineChart,
@@ -110,15 +110,20 @@ export default function MetricsVisualization({ boardId, boardConfig }: MetricsVi
     
     setLoading(true)
     try {
-      const [channelType, channelIndex] = selectedChannel.split(":")
-      const data = await invoke<TrendData>("get_trend_data", {
-        boardId,
-        channelType,
-        channelIndex: parseInt(channelIndex),
-        hours: parseInt(selectedHours)
-      })
-      
-      setTrendData(data)
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        const [channelType, channelIndex] = selectedChannel.split(":")
+        const data = await invoke<TrendData>("get_trend_data", {
+          boardId,
+          channelType,
+          channelIndex: parseInt(channelIndex),
+          hours: parseInt(selectedHours)
+        })
+        
+        setTrendData(data)
+      } else {
+        console.log("Web mode: Trend data fetching disabled")
+      }
     } catch (error) {
       console.error("Failed to fetch trend data:", error)
     } finally {

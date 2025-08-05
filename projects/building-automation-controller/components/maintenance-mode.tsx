@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Wrench, AlertTriangle, Clock, User, FileText, XCircle } from "lucide-react"
-import { invoke } from "@tauri-apps/api/tauri"
+// Dynamic import for Tauri - will be null in web mode
 
 interface MaintenanceMode {
   enabled: boolean
@@ -35,9 +35,22 @@ export default function MaintenanceMode({ onStatusChange }: MaintenanceModeProps
   // Fetch maintenance status
   const fetchStatus = async () => {
     try {
-      const status = await invoke<MaintenanceMode>("get_maintenance_status")
-      setMaintenanceStatus(status)
-      onStatusChange?.(status.enabled)
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        const status = await invoke<MaintenanceMode>("get_maintenance_status")
+        setMaintenanceStatus(status)
+        onStatusChange?.(status.enabled)
+      } else {
+        // Mock data for web mode
+        const mockStatus: MaintenanceMode = {
+          enabled: false,
+          duration_minutes: 120,
+          reason: "",
+          authorized_by: ""
+        };
+        setMaintenanceStatus(mockStatus)
+        onStatusChange?.(false)
+      }
     } catch (error) {
       console.error("Failed to get maintenance status:", error)
     }
@@ -86,11 +99,16 @@ export default function MaintenanceMode({ onStatusChange }: MaintenanceModeProps
 
     setLoading(true)
     try {
-      await invoke("enable_maintenance_mode", {
-        reason: reason.trim(),
-        authorizedBy: authorizedBy.trim(),
-        durationMinutes: parseInt(duration)
-      })
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        await invoke("enable_maintenance_mode", {
+          reason: reason.trim(),
+          authorizedBy: authorizedBy.trim(),
+          durationMinutes: parseInt(duration)
+        })
+      } else {
+        console.log("Web mode: Maintenance mode enable simulation")
+      }
       
       await fetchStatus()
       setDialogOpen(false)
@@ -107,7 +125,12 @@ export default function MaintenanceMode({ onStatusChange }: MaintenanceModeProps
     if (confirm("Are you sure you want to exit maintenance mode? Automatic control will resume.")) {
       setLoading(true)
       try {
-        await invoke("disable_maintenance_mode")
+        if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+          const { invoke } = await import("@tauri-apps/api/tauri");
+          await invoke("disable_maintenance_mode")
+        } else {
+          console.log("Web mode: Maintenance mode disable simulation")
+        }
         await fetchStatus()
       } catch (error) {
         alert(`Failed to disable maintenance mode: ${error}`)

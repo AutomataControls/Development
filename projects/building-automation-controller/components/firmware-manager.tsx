@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { invoke } from "@tauri-apps/api/tauri"
+// Dynamic import for Tauri - will be null in web mode
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -45,8 +45,13 @@ export default function FirmwareManager({ boards }: FirmwareManagerProps) {
   const loadFirmwareRepos = async () => {
     setIsLoading(true)
     try {
-      const repoList: FirmwareRepo[] = await invoke("check_firmware_repos")
-      setRepos(repoList)
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        const repoList: FirmwareRepo[] = await invoke("check_firmware_repos")
+        setRepos(repoList)
+      } else {
+        console.log("Web mode: Firmware repository loading disabled")
+      }
     } catch (error) {
       console.error("Failed to load firmware repositories:", error)
     } finally {
@@ -57,9 +62,15 @@ export default function FirmwareManager({ boards }: FirmwareManagerProps) {
   const cloneRepository = async (repoName: string) => {
     setOperationStatus({ ...operationStatus, [repoName]: "Cloning..." })
     try {
-      const result: string = await invoke("clone_firmware_repo", { repoName })
-      setOperationStatus({ ...operationStatus, [repoName]: result })
-      await loadFirmwareRepos() // Refresh the list
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        const result: string = await invoke("clone_firmware_repo", { repoName })
+        setOperationStatus({ ...operationStatus, [repoName]: result })
+        await loadFirmwareRepos() // Refresh the list
+      } else {
+        console.log("Web mode: Repository cloning disabled")
+        setOperationStatus({ ...operationStatus, [repoName]: "Web mode: Operation not available" })
+      }
     } catch (error) {
       setOperationStatus({ ...operationStatus, [repoName]: `Error: ${error}` })
     }
@@ -68,8 +79,14 @@ export default function FirmwareManager({ boards }: FirmwareManagerProps) {
   const installDrivers = async (repoName: string) => {
     setOperationStatus({ ...operationStatus, [repoName]: "Installing drivers..." })
     try {
-      const result: string = await invoke("install_firmware_drivers", { repoName })
-      setOperationStatus({ ...operationStatus, [repoName]: result })
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        const result: string = await invoke("install_firmware_drivers", { repoName })
+        setOperationStatus({ ...operationStatus, [repoName]: result })
+      } else {
+        console.log("Web mode: Driver installation disabled")
+        setOperationStatus({ ...operationStatus, [repoName]: "Web mode: Operation not available" })
+      }
     } catch (error) {
       setOperationStatus({ ...operationStatus, [repoName]: `Error: ${error}` })
     }
@@ -78,9 +95,15 @@ export default function FirmwareManager({ boards }: FirmwareManagerProps) {
   const pullUpdates = async (repoName: string) => {
     setOperationStatus({ ...operationStatus, [repoName]: "Pulling updates..." })
     try {
-      const result: string = await invoke("pull_firmware_updates", { repoName })
-      setOperationStatus({ ...operationStatus, [repoName]: result })
-      await loadFirmwareRepos() // Refresh the list
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        const result: string = await invoke("pull_firmware_updates", { repoName })
+        setOperationStatus({ ...operationStatus, [repoName]: result })
+        await loadFirmwareRepos() // Refresh the list
+      } else {
+        console.log("Web mode: Pulling updates disabled")
+        setOperationStatus({ ...operationStatus, [repoName]: "Web mode: Operation not available" })
+      }
     } catch (error) {
       setOperationStatus({ ...operationStatus, [repoName]: `Error: ${error}` })
     }
@@ -103,10 +126,17 @@ export default function FirmwareManager({ boards }: FirmwareManagerProps) {
     }, 500)
 
     try {
-      const result: string = await invoke("update_board_firmware", { repoName, stackLevel })
-      clearInterval(progressInterval)
-      setUpdateProgress({ ...updateProgress, [key]: 100 })
-      setOperationStatus({ ...operationStatus, [key]: result })
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        const result: string = await invoke("update_board_firmware", { repoName, stackLevel })
+        clearInterval(progressInterval)
+        setUpdateProgress({ ...updateProgress, [key]: 100 })
+        setOperationStatus({ ...operationStatus, [key]: result })
+      } else {
+        console.log("Web mode: Firmware update disabled")
+        clearInterval(progressInterval)
+        setOperationStatus({ ...operationStatus, [key]: "Web mode: Operation not available" })
+      }
     } catch (error) {
       clearInterval(progressInterval)
       setOperationStatus({ ...operationStatus, [key]: `Error: ${error}` })

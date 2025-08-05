@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { invoke } from "@tauri-apps/api/tauri"
+// Dynamic import for Tauri - will be null in web mode
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -77,8 +77,13 @@ export default function LogicEngine({ selectedBoard }: LogicEngineProps) {
 
   const loadLogicFiles = async () => {
     try {
-      const files: LogicFile[] = await invoke("get_logic_files")
-      setLogicFiles(files)
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        const files: LogicFile[] = await invoke("get_logic_files")
+        setLogicFiles(files)
+      } else {
+        console.log("Web mode: Logic files loading disabled")
+      }
     } catch (error) {
       console.error("Failed to load logic files:", error)
     }
@@ -86,10 +91,15 @@ export default function LogicEngine({ selectedBoard }: LogicEngineProps) {
 
   const loadExecutionHistory = async (logicId: string) => {
     try {
-      const history: LogicExecution[] = await invoke("get_logic_execution_history", {
-        logicId,
-      })
-      setExecutionHistory(history.slice(-20)) // Show last 20 executions
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        const history: LogicExecution[] = await invoke("get_logic_execution_history", {
+          logicId,
+        })
+        setExecutionHistory(history.slice(-20)) // Show last 20 executions
+      } else {
+        console.log("Web mode: Execution history loading disabled")
+      }
     } catch (error) {
       console.error("Failed to load execution history:", error)
     }
@@ -97,13 +107,19 @@ export default function LogicEngine({ selectedBoard }: LogicEngineProps) {
 
   const uploadLogicFile = async () => {
     try {
-      const logicId: string = await invoke("load_logic_file", {
-        filePath: logicFilePath,
-      })
-      setUploadDialogOpen(false)
-      setLogicFilePath("")
-      loadLogicFiles()
-      alert(`Logic file loaded successfully! ID: ${logicId}`)
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        const logicId: string = await invoke("load_logic_file", {
+          filePath: logicFilePath,
+        })
+        setUploadDialogOpen(false)
+        setLogicFilePath("")
+        loadLogicFiles()
+        alert(`Logic file loaded successfully! ID: ${logicId}`)
+      } else {
+        console.log("Web mode: Logic file upload disabled")
+        alert("Logic file upload is only available in desktop mode")
+      }
     } catch (error) {
       console.error("Failed to upload logic file:", error)
       alert(`Failed to upload logic file: ${error}`)
@@ -112,11 +128,16 @@ export default function LogicEngine({ selectedBoard }: LogicEngineProps) {
 
   const toggleLogicActive = async (logicId: string, active: boolean) => {
     try {
-      await invoke("activate_logic_file", {
-        logicId,
-        active,
-      })
-      loadLogicFiles()
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        await invoke("activate_logic_file", {
+          logicId,
+          active,
+        })
+        loadLogicFiles()
+      } else {
+        console.log("Web mode: Logic activation disabled")
+      }
     } catch (error) {
       console.error("Failed to toggle logic active state:", error)
     }
@@ -130,19 +151,25 @@ export default function LogicEngine({ selectedBoard }: LogicEngineProps) {
 
     setIsExecuting(true)
     try {
-      const outputs = await invoke("execute_logic_file", {
-        logicId,
-        boardId: selectedBoard,
-      })
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const { invoke } = await import("@tauri-apps/api/tauri");
+        const outputs = await invoke("execute_logic_file", {
+          logicId,
+          boardId: selectedBoard,
+        })
 
-      // Apply outputs to the board
-      await invoke("apply_logic_outputs", {
-        outputs,
-        boardId: selectedBoard,
-      })
+        // Apply outputs to the board
+        await invoke("apply_logic_outputs", {
+          outputs,
+          boardId: selectedBoard,
+        })
 
-      loadExecutionHistory(logicId)
-      alert("Logic executed successfully!")
+        loadExecutionHistory(logicId)
+        alert("Logic executed successfully!")
+      } else {
+        console.log("Web mode: Logic execution disabled")
+        alert("Logic execution is only available in desktop mode")
+      }
     } catch (error) {
       console.error("Failed to execute logic:", error)
       alert(`Logic execution failed: ${error}`)
@@ -154,11 +181,16 @@ export default function LogicEngine({ selectedBoard }: LogicEngineProps) {
   const deleteLogicFile = async (logicId: string) => {
     if (confirm("Are you sure you want to delete this logic file?")) {
       try {
-        await invoke("delete_logic_file", { logicId })
-        loadLogicFiles()
-        if (selectedLogic === logicId) {
-          setSelectedLogic("")
-          setExecutionHistory([])
+        if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+          const { invoke } = await import("@tauri-apps/api/tauri");
+          await invoke("delete_logic_file", { logicId })
+          loadLogicFiles()
+          if (selectedLogic === logicId) {
+            setSelectedLogic("")
+            setExecutionHistory([])
+          }
+        } else {
+          console.log("Web mode: Logic file deletion disabled")
         }
       } catch (error) {
         console.error("Failed to delete logic file:", error)
