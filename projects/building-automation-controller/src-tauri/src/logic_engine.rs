@@ -157,7 +157,7 @@ impl LogicEngine {
         inputs: LogicInputs,
     ) -> Result<LogicOutputs, String> {
         // Check if logic file exists and is active
-        let (is_active, location_id, equipment_id, logic_content) = {
+        let (is_active, location_id, equipment_id) = {
             let logic_file = self.logic_files.get(logic_id)
                 .ok_or("Logic file not found")?;
             
@@ -165,14 +165,9 @@ impl LogicEngine {
                 return Err("Logic file is not active".to_string());
             }
             
-            // Read the file content from disk
-            let content = fs::read_to_string(&logic_file.file_path)
-                .map_err(|e| format!("Failed to read logic file: {}", e))?;
-            
             (logic_file.is_active, 
              logic_file.location_id.clone(), 
-             logic_file.equipment_id.clone(),
-             content)
+             logic_file.equipment_id.clone())
         };
 
         let start_time = std::time::Instant::now();

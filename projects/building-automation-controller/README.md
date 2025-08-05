@@ -1,9 +1,35 @@
-# Building Automation Controller
+# Automata Nexus Building Automation Controller
 
-A comprehensive Tauri-based control system for Sequent Microsystems building automation hardware on Raspberry Pi.
+<div align="center">
 
-## Features
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![License](https://img.shields.io/badge/license-Commercial-red.svg)
+![Platform](https://img.shields.io/badge/platform-Raspberry%20Pi-green.svg)
+![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)
+![Node](https://img.shields.io/badge/node-18%2B-green.svg)
+![Tauri](https://img.shields.io/badge/Tauri-1.5-blue.svg)
 
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)
+![ASHRAE](https://img.shields.io/badge/ASHRAE-207--2021-blue.svg)
+![ISO](https://img.shields.io/badge/ISO-10816--3-green.svg)
+![BACnet Ready](https://img.shields.io/badge/BACnet-Ready-orange.svg)
+![Modbus](https://img.shields.io/badge/Modbus-RTU%2FTCP-blue.svg)
+
+**Professional Building Automation System for Raspberry Pi**
+
+[Features](#features) • [Hardware](#hardware-requirements) • [Installation](#installation) • [Documentation](#documentation) • [License](#license)
+
+</div>
+
+---
+
+## 🏢 Overview
+
+A comprehensive Tauri-based control system competing with industry leaders like Niagara, Automated Logic, Delta Controls, and Johnson Controls. Built specifically for Sequent Microsystems building automation hardware on Raspberry Pi.
+
+## ✨ Features
+
+### 🔧 Hardware Control
 - **MegaBAS HAT Control**
   - 8x Universal inputs (software configurable):
     - 0-10V analog input (default)
@@ -21,6 +47,7 @@ A comprehensive Tauri-based control system for Sequent Microsystems building aut
   - 16-channel analog output boards
   - 8-channel relay boards
 
+### 📊 Advanced Monitoring
 - **Vibration Monitoring (Optional)**
   - WIT-Motion WTVB01-485 sensors via RS485/Modbus RTU
   - ISO 10816-3 compliant vibration analysis
@@ -34,32 +61,72 @@ A comprehensive Tauri-based control system for Sequent Microsystems building aut
   - Real-time fault detection and diagnostics
   - ASHRAE 207-2021 compliant
 
+### 🌐 Integration & Connectivity
 - **Data Integration**
   - BMS metric sender with InfluxDB line protocol
   - Processing validation proxy for enhanced data validation
   - Configurable equipment types and zones
   - Real-time monitoring and control
 
-## Requirements
+### 💻 Software Features
+- **Logic Engine**
+  - JavaScript-based control logic
+  - BMS command integration with local fallback
+  - Real-time execution with state management
+  
+- **Database & Analytics**
+  - SQLite metrics storage with 7-day retention
+  - Real-time trend visualization
+  - Historical data analysis
+  
+- **User Interface**
+  - Modern web-based UI (Tauri + Next.js)
+  - Real-time data updates
+  - Maintenance mode with 2-hour timer
+  - Professional glassmorphism design
 
-- Raspberry Pi running Bullseye 32-bit OS
+## 📋 Requirements
+
+### Hardware
+- Raspberry Pi 3/4/5 (8GB recommended)
 - Sequent Microsystems MegaBAS HAT
-- Python 3.x with megabas library
-- Optional expansion boards
+- Optional expansion boards (16-relay, 16-input, etc.)
+- Optional P499 pressure transducers
+- Optional WTVB01-485 vibration sensors
 
-## Installation
+### Software
+- Raspberry Pi OS Bullseye (32-bit or 64-bit)
+- Python 3.x
+- Node.js 18+
+- Rust 1.75+
 
-1. Deploy to Raspberry Pi:
-   ```bash
-   ./scripts/deploy-to-pi.sh pi@raspberrypi.local
-   ```
+## 🚀 Installation
 
-2. The deployment script will:
-   - Install required Python libraries (megabas, SM16relind, SM16univin, SM16uout, SM8relind)
-   - Configure I2C interface
-   - Set up the application
+### Quick Install (Recommended)
+```bash
+# Clone the repository
+git clone https://github.com/AutomataControls/Development.git
+cd Development/projects/building-automation-controller
 
-## Usage
+# Run the graphical installer
+sudo python3 installer/install-automata-nexus.py
+```
+
+### Manual Installation
+```bash
+# Deploy to Raspberry Pi
+./scripts/deploy-to-pi.sh pi@raspberrypi.local
+```
+
+The installer will:
+- ✓ Install all system dependencies
+- ✓ Configure I2C and serial interfaces
+- ✓ Install Sequent Microsystems drivers
+- ✓ Build and install the application
+- ✓ Set up systemd service
+- ✓ Configure proper permissions
+
+## 🖥️ Usage
 
 Access the web interface at `http://raspberrypi.local:1420`
 

@@ -757,7 +757,7 @@ WantedBy=multi-user.target
             "The service can be started with:\n"
             f"sudo systemctl start {self.service_name}\n\n"
             "Access the web interface at:\n"
-            "http://localhost:1420"
+            "http://localhost:1420 or http://<your-pi-ip>:1420"
         )
         self.root.quit()
         

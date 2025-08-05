@@ -607,7 +607,7 @@ async fn query_bms_commands(
     location_id: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<BmsCommand>, String> {
-    let (enabled, bms_server_url) = {
+    let bms_server_url = {
         let bms_configs = state.bms_configs.lock().unwrap();
         
         // Find BMS config for this equipment
@@ -619,7 +619,7 @@ async fn query_bms_commands(
             return Err("BMS integration is disabled".to_string());
         }
         
-        (bms_config.enabled, bms_config.bms_server_url.clone())
+        bms_config.bms_server_url.clone()
     };
 
     // Build the InfluxDB query exactly as specified
