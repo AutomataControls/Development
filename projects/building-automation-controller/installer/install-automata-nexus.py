@@ -617,8 +617,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=automata
-Group=automata
+User=Automata
+Group=Automata
 WorkingDirectory={self.install_path}/app
 ExecStart={self.install_path}/app/src-tauri/target/aarch64-unknown-linux-gnu/release/building-automation-controller
 Restart=always
@@ -648,17 +648,17 @@ WantedBy=multi-user.target
         """Setup permissions and user groups"""
         self.log("Setting up permissions...")
         
-        # Create automata user if it doesn't exist
+        # Create Automata user if it doesn't exist
         try:
-            self.run_command(["useradd", "-r", "-s", "/bin/false", "automata"])
+            self.run_command(["useradd", "-r", "-s", "/bin/false", "Automata"])
         except:
             pass  # User might already exist
             
-        # Add automata user to required groups
-        self.run_command(["usermod", "-a", "-G", "i2c,gpio,dialout", "automata"])
+        # Add Automata user to required groups
+        self.run_command(["usermod", "-a", "-G", "i2c,gpio,dialout", "Automata"])
         
         # Set ownership
-        self.run_command(["chown", "-R", "automata:automata", self.install_path])
+        self.run_command(["chown", "-R", "Automata:Automata", self.install_path])
         
         # Set executable permissions
         binary_path = f"{self.install_path}/app/src-tauri/target/aarch64-unknown-linux-gnu/release/building-automation-controller"
