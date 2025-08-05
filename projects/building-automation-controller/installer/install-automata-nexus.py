@@ -486,14 +486,18 @@ For licensing inquiries, contact: licensing@automatanexus.com
             "libayatana-appindicator3-dev", "librsvg2-dev",
             "i2c-tools", "git", "curl", "wget", "expect",
             "gcc-aarch64-linux-gnu", "g++-aarch64-linux-gnu",
-            "python3-pil", "python3-pil.imagetk"  # For logo display in installer
+            "python3-pil", "python3-pil.imagetk",  # For logo display in installer
+            "libudev-dev", "pkg-config"  # For serialport Rust crate
         ]
         self.run_command(["apt-get", "install", "-y"] + packages)
         
     def install_python_libs(self):
         """Install Python libraries"""
         self.log("Installing Python libraries...")
-        libs = ["SMmegabas", "SM16relind", "SM16univin", "SM16uout", "SM8relind", "requests"]
+        libs = [
+            "SMmegabas", "SM16relind", "SM16univin", "SM16uout", "SM8relind", 
+            "requests", "pyserial"  # Added pyserial for RS485/vibration sensor support
+        ]
         for lib in libs:
             try:
                 self.log(f"Installing {lib}...")
@@ -622,8 +626,8 @@ RestartSec=10
 Environment="RUST_LOG=info"
 Environment="WEBKIT_DISABLE_COMPOSITING_MODE=1"
 
-# I2C device access
-SupplementaryGroups=i2c
+# I2C and serial device access
+SupplementaryGroups=i2c dialout
 PrivateDevices=no
 
 # Resource limits
@@ -651,7 +655,7 @@ WantedBy=multi-user.target
             pass  # User might already exist
             
         # Add automata user to required groups
-        self.run_command(["usermod", "-a", "-G", "i2c,gpio", "automata"])
+        self.run_command(["usermod", "-a", "-G", "i2c,gpio,dialout", "automata"])
         
         # Set ownership
         self.run_command(["chown", "-R", "automata:automata", self.install_path])
