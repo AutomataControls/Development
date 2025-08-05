@@ -44,6 +44,7 @@ class AutomataNexusInstaller:
         # Components to install
         self.components = [
             ("System Update", self.update_system),
+            ("Timezone & Time Sync", self.setup_timezone),
             ("Increase Swap Size", self.increase_swap_size),
             ("I2C Interface", self.enable_i2c),
             ("Python 3 & pip", self.install_python),
@@ -378,6 +379,37 @@ For licensing inquiries, contact: licensing@automatanexus.com
         """Update system packages"""
         self.log("Updating system packages...")
         self.run_command(["apt-get", "update", "-y"])
+    
+    def setup_timezone(self):
+        """Setup Eastern Standard Time and enable NTP time sync"""
+        self.log("Setting up Eastern Standard Time...")
+        
+        try:
+            # Set timezone to Eastern
+            self.log("Setting timezone to America/New_York (Eastern Time)...")
+            self.run_command(["timedatectl", "set-timezone", "America/New_York"])
+            
+            # Enable NTP time synchronization
+            self.log("Enabling NTP time synchronization...")
+            self.run_command(["timedatectl", "set-ntp", "true"])
+            
+            # Install and configure chrony for better time sync
+            self.log("Installing chrony for improved time synchronization...")
+            self.run_command(["apt-get", "install", "-y", "chrony"])
+            
+            # Enable and start chrony
+            self.run_command(["systemctl", "enable", "chrony"])
+            self.run_command(["systemctl", "start", "chrony"])
+            
+            # Show current time settings
+            time_status = self.run_command(["timedatectl", "status"])
+            self.log(f"Time configuration:\n{time_status}")
+            
+            self.log("✓ Timezone set to Eastern Standard Time with NTP sync enabled")
+            
+        except Exception as e:
+            self.log(f"⚠ Warning: Could not configure timezone: {str(e)}")
+            self.log("You may need to manually set timezone with: sudo timedatectl set-timezone America/New_York")
     
     def increase_swap_size(self):
         """Increase swap size to 2GB for Rust compilation"""
