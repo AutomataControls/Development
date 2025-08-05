@@ -8,7 +8,7 @@ pub mod diagnostics;
 use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 
-pub use refrigerants::{RefrigerantDatabase, PressureTemperatureData};
+pub use refrigerants::{RefrigerantDatabase, PressureTemperaturePoint};
 pub use p499_transducer::{P499Interface, P499Configuration, TransducerReading};
 pub use diagnostics::{DiagnosticEngine, SystemConfiguration, DiagnosticReading, DiagnosticResult};
 
@@ -34,7 +34,7 @@ pub struct RefrigerantDiagnosticsManager {
 impl RefrigerantDiagnosticsManager {
     pub fn new() -> Self {
         let refrigerant_db = Arc::new(RefrigerantDatabase::new());
-        let diagnostic_engine = Arc::new(DiagnosticEngine::new(refrigerant_db.clone()));
+        let diagnostic_engine = Arc::new(DiagnosticEngine::new());
         
         RefrigerantDiagnosticsManager {
             refrigerant_db,

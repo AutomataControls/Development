@@ -1945,9 +1945,9 @@ async fn list_refrigerants(
                     chemical_name: props.chemical_name.clone(),
                     safety_class: props.safety_class.clone(),
                     gwp: props.gwp,
-                    odp: props.odp,
+                    odp: 0.0, // Not available in this refrigerant database
                     critical_temp_f: props.critical_temp_f,
-                    boiling_point_f: props.boiling_point_f,
+                    boiling_point_f: 0.0, // Not available in this refrigerant database  
                     applications: props.applications.clone(),
                 }
             })
@@ -2061,9 +2061,9 @@ async fn search_refrigerants_by_gwp(
                     chemical_name: props.chemical_name.clone(),
                     safety_class: props.safety_class.clone(),
                     gwp: props.gwp,
-                    odp: props.odp,
+                    odp: 0.0, // Not available in this refrigerant database
                     critical_temp_f: props.critical_temp_f,
-                    boiling_point_f: props.boiling_point_f,
+                    boiling_point_f: 0.0, // Not available in this refrigerant database  
                     applications: props.applications.clone(),
                 }
             })

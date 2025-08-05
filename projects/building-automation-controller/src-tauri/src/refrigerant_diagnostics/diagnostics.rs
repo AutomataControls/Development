@@ -2,8 +2,8 @@
 // Implements ASHRAE 207-2021 and NIST FDD guidelines
 
 use serde::{Deserialize, Serialize};
-use crate::refrigerants::{RefrigerantDatabase};
-use crate::p499_transducer::TransducerReading;
+use crate::refrigerant_diagnostics::refrigerants::{RefrigerantDatabase};
+use crate::refrigerant_diagnostics::p499_transducer::TransducerReading;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemConfiguration {
