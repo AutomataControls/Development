@@ -27,6 +27,13 @@ A comprehensive Tauri-based control system for Sequent Microsystems building aut
   - Real-time equipment health monitoring
   - Automatic alert thresholds
 
+- **HVAC Refrigerant Diagnostics (Optional)**
+  - P499 pressure transducer support (0-10V models)
+  - 100+ refrigerant database (R-410A, R-454B, R-32, etc.)
+  - Superheat/subcooling calculations
+  - Real-time fault detection and diagnostics
+  - ASHRAE 207-2021 compliant
+
 - **Data Integration**
   - BMS metric sender with InfluxDB line protocol
   - Processing validation proxy for enhanced data validation

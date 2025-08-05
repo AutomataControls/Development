@@ -210,6 +210,21 @@ async fn execute_logic(script: String) -> Result<LogicResult, String>
   - Automatic alert thresholds
   - Equipment classification (A/B/C/D zones)
 
+### HVAC Refrigerant Diagnostics (Optional)
+- P499 Series pressure transducers (0-10V models)
+- 100+ refrigerant database with ASHRAE compliance
+- Professional diagnostic capabilities:
+  - Superheat/subcooling calculations
+  - Fault pattern recognition
+  - Pressure-temperature validation
+  - System efficiency analysis
+- Supported refrigerants:
+  - Modern A2L: R-454B, R-32, R-452B
+  - Traditional: R-410A, R-22, R-134a
+  - Natural: R-290, R-717, R-744
+  - Commercial: R-404A, R-507A, R-448A
+  - Ultra-low temp: R-23, R-508A/B
+
 ### Performance Optimization
 - Rust backend for speed
 - SQLite with proper indexing

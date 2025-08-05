@@ -3,6 +3,7 @@
 mod logic_engine;
 mod metrics_db;
 mod vibration_sensor;
+mod refrigerant_diagnostics;
 
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
@@ -12,6 +13,11 @@ use chrono::{DateTime, Utc};
 use logic_engine::{LogicEngine, LogicFile, LogicInputs, LogicOutputs, LogicExecution};
 use metrics_db::{MetricsDatabase, MetricQuery, TrendData};
 use vibration_sensor::{VibrationManager, VibrationReading, VibrationSensorConfig};
+use refrigerant_diagnostics::{
+    RefrigerantDiagnosticsManager, RefrigerantInfo,
+    P499Configuration, TransducerReading,
+    SystemConfiguration, DiagnosticReading, DiagnosticResult
+};
 
 struct AppState {
     boards: Mutex<HashMap<String, BoardInfo>>,
@@ -23,6 +29,8 @@ struct AppState {
     maintenance_mode: Mutex<MaintenanceMode>,
     metrics_db: Mutex<Option<MetricsDatabase>>,
     vibration_manager: Mutex<VibrationManager>,
+    refrigerant_diagnostics: Mutex<RefrigerantDiagnosticsManager>,
+    refrigerant_systems: Mutex<HashMap<String, SystemConfiguration>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -237,6 +245,8 @@ impl AppState {
             maintenance_mode: Mutex::new(MaintenanceMode::default()),
             metrics_db: Mutex::new(metrics_db),
             vibration_manager: Mutex::new(VibrationManager::new()),
+            refrigerant_diagnostics: Mutex::new(RefrigerantDiagnosticsManager::new()),
+            refrigerant_systems: Mutex::new(HashMap::new()),
         }
     }
 }
@@ -1919,6 +1929,157 @@ async fn check_vibration_alerts(
     Ok(vibration_manager.check_alerts())
 }
 
+// Refrigerant diagnostic commands
+#[tauri::command]
+async fn list_refrigerants(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<RefrigerantInfo>, String> {
+    let diagnostics = state.refrigerant_diagnostics.lock().unwrap();
+    let refrigerants = diagnostics.refrigerant_db.list_all_refrigerants();
+    
+    Ok(refrigerants.into_iter()
+        .filter_map(|designation| {
+            diagnostics.refrigerant_db.get_refrigerant(&designation).map(|props| {
+                RefrigerantInfo {
+                    designation: props.designation.clone(),
+                    chemical_name: props.chemical_name.clone(),
+                    safety_class: props.safety_class.clone(),
+                    gwp: props.gwp,
+                    odp: props.odp,
+                    critical_temp_f: props.critical_temp_f,
+                    boiling_point_f: props.boiling_point_f,
+                    applications: props.applications.clone(),
+                }
+            })
+        })
+        .collect())
+}
+
+#[tauri::command]
+async fn calculate_saturation_temp(
+    refrigerant: String,
+    pressure_psi: f32,
+    state: tauri::State<'_, AppState>,
+) -> Result<f32, String> {
+    let diagnostics = state.refrigerant_diagnostics.lock().unwrap();
+    diagnostics.refrigerant_db
+        .calculate_saturation_temperature(&refrigerant, pressure_psi)
+        .ok_or_else(|| "Cannot calculate saturation temperature".to_string())
+}
+
+#[tauri::command]
+async fn configure_p499_transducer(
+    config: P499Configuration,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let diagnostics = state.refrigerant_diagnostics.lock().unwrap();
+    let mut interface = diagnostics.p499_interface.lock().unwrap();
+    interface.add_transducer(config);
+    Ok(())
+}
+
+#[tauri::command]
+async fn read_p499_transducer(
+    board_id: String,
+    channel: u8,
+    state: tauri::State<'_, AppState>,
+) -> Result<TransducerReading, String> {
+    let diagnostics = state.refrigerant_diagnostics.lock().unwrap();
+    let interface = diagnostics.p499_interface.lock().unwrap();
+    interface.read_transducer(&board_id, channel)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn read_all_p499_transducers(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<TransducerReading>, String> {
+    let diagnostics = state.refrigerant_diagnostics.lock().unwrap();
+    let interface = diagnostics.p499_interface.lock().unwrap();
+    let readings: Vec<TransducerReading> = interface.read_all_transducers()
+        .into_iter()
+        .filter_map(|result| result.ok())
+        .collect();
+    Ok(readings)
+}
+
+#[tauri::command]
+async fn configure_refrigerant_system(
+    system_id: String,
+    config: SystemConfiguration,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut systems = state.refrigerant_systems.lock().unwrap();
+    systems.insert(system_id, config);
+    Ok(())
+}
+
+#[tauri::command]
+async fn analyze_refrigerant_system(
+    system_id: String,
+    reading: DiagnosticReading,
+    state: tauri::State<'_, AppState>,
+) -> Result<DiagnosticResult, String> {
+    let systems = state.refrigerant_systems.lock().unwrap();
+    let config = systems.get(&system_id)
+        .ok_or("System configuration not found")?;
+    
+    let diagnostics = state.refrigerant_diagnostics.lock().unwrap();
+    diagnostics.diagnostic_engine.analyze_system(config, &reading)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn get_refrigerant_pt_data(
+    refrigerant: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<(f32, f32)>, String> {
+    let diagnostics = state.refrigerant_diagnostics.lock().unwrap();
+    diagnostics.refrigerant_db
+        .get_pt_data(&refrigerant)
+        .map(|data| {
+            data.iter()
+                .map(|pt| (pt.temperature_f, pt.pressure_psi))
+                .collect()
+        })
+        .ok_or_else(|| format!("No P-T data for refrigerant {}", refrigerant))
+}
+
+#[tauri::command]
+async fn search_refrigerants_by_gwp(
+    max_gwp: i32,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<RefrigerantInfo>, String> {
+    let diagnostics = state.refrigerant_diagnostics.lock().unwrap();
+    let refrigerants = diagnostics.refrigerant_db.search_by_gwp(max_gwp);
+    
+    Ok(refrigerants.into_iter()
+        .filter_map(|designation| {
+            diagnostics.refrigerant_db.get_refrigerant(&designation).map(|props| {
+                RefrigerantInfo {
+                    designation: props.designation.clone(),
+                    chemical_name: props.chemical_name.clone(),
+                    safety_class: props.safety_class.clone(),
+                    gwp: props.gwp,
+                    odp: props.odp,
+                    critical_temp_f: props.critical_temp_f,
+                    boiling_point_f: props.boiling_point_f,
+                    applications: props.applications.clone(),
+                }
+            })
+        })
+        .collect())
+}
+
+#[tauri::command]
+async fn get_p499_transducers(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<P499Configuration>, String> {
+    let diagnostics = state.refrigerant_diagnostics.lock().unwrap();
+    let interface = diagnostics.p499_interface.lock().unwrap();
+    Ok(interface.get_transducers().clone())
+}
+
 // Helper function to calculate scaled value
 fn calculate_scaled_value(channel_config: &ChannelConfig, raw_value: f64) -> f64 {
     match channel_config.input_type.as_deref() {
@@ -2019,7 +2180,18 @@ async fn main() {
             get_vibration_configs,
             read_vibration_sensor,
             get_all_vibration_readings,
-            check_vibration_alerts
+            check_vibration_alerts,
+            // Refrigerant diagnostics
+            list_refrigerants,
+            calculate_saturation_temp,
+            configure_p499_transducer,
+            read_p499_transducer,
+            read_all_p499_transducers,
+            configure_refrigerant_system,
+            analyze_refrigerant_system,
+            get_refrigerant_pt_data,
+            search_refrigerants_by_gwp,
+            get_p499_transducers
         ])
         .setup(|app| {
             println!("Building Automation Control Center with BMS Integration starting up!");
