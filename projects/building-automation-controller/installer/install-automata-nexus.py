@@ -344,14 +344,15 @@ For licensing inquiries, contact: licensing@automatanexus.com
             "libwebkit2gtk-4.0-dev", "libssl-dev", "libgtk-3-dev",
             "libayatana-appindicator3-dev", "librsvg2-dev",
             "i2c-tools", "git", "curl", "wget", "expect",
-            "gcc-aarch64-linux-gnu", "g++-aarch64-linux-gnu"
+            "gcc-aarch64-linux-gnu", "g++-aarch64-linux-gnu",
+            "python3-pil", "python3-pil.imagetk"  # For logo display in installer
         ]
         self.run_command(["apt-get", "install", "-y"] + packages)
         
     def install_python_libs(self):
         """Install Python libraries"""
         self.log("Installing Python libraries...")
-        libs = ["SMmegabas", "SM16relind", "SM16univin", "SM16uout", "SM8relind", "requests", "Pillow"]
+        libs = ["SMmegabas", "SM16relind", "SM16univin", "SM16uout", "SM8relind", "requests"]
         for lib in libs:
             try:
                 self.log(f"Installing {lib}...")
