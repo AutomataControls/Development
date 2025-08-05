@@ -691,8 +691,16 @@ WantedBy=multi-user.target
         result = subprocess.run(cmd_str, shell=True, cwd=cwd, 
                               capture_output=True, text=True)
         
+        # Log any stderr output as warnings
+        if result.stderr:
+            for line in result.stderr.strip().split('\n'):
+                if line:
+                    self.log(f"⚠ {line}")
+        
+        # Only fail on non-zero return code
         if result.returncode != 0:
-            raise Exception(f"Command failed: {result.stderr}")
+            error_msg = result.stderr if result.stderr else f"Command exited with code {result.returncode}"
+            raise Exception(f"Command failed: {error_msg}")
             
         return result.stdout
         
