@@ -36,6 +36,7 @@ class AutomataNexusInstaller:
         # Components to install
         self.components = [
             ("System Update", self.update_system),
+            ("Increase Swap Size", self.increase_swap_size),
             ("I2C Interface", self.enable_i2c),
             ("Python 3 & pip", self.install_python),
             ("Node.js 18+", self.install_nodejs),
@@ -288,6 +289,34 @@ For licensing inquiries, contact: licensing@automatanexus.com
         """Update system packages"""
         self.log("Updating system packages...")
         self.run_command(["apt-get", "update", "-y"])
+    
+    def increase_swap_size(self):
+        """Increase swap size to 2GB for Rust compilation"""
+        self.log("Increasing swap size to 2GB for compilation...")
+        
+        try:
+            # Check current swap size
+            result = self.run_command(["free", "-h"])
+            self.log(f"Current memory status:\n{result}")
+            
+            # Edit the swap configuration
+            self.log("Configuring swap size to 2048MB...")
+            self.run_command(["sed", "-i", "s/^CONF_SWAPSIZE=.*/CONF_SWAPSIZE=2048/", "/etc/dphys-swapfile"])
+            
+            # Restart swap service
+            self.log("Restarting swap service...")
+            self.run_command(["dphys-swapfile", "swapoff"])
+            self.run_command(["dphys-swapfile", "setup"])
+            self.run_command(["dphys-swapfile", "swapon"])
+            
+            # Verify the change
+            result = self.run_command(["free", "-h"])
+            self.log(f"Updated memory status:\n{result}")
+            self.log("✓ Swap size increased successfully")
+            
+        except Exception as e:
+            self.log(f"⚠ Warning: Could not increase swap size: {str(e)}")
+            self.log("Continuing installation - may cause build failures on low memory systems")
         
     def enable_i2c(self):
         """Enable I2C interface"""
