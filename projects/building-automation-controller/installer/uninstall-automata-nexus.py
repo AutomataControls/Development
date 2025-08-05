@@ -236,7 +236,7 @@ class AutomataNexusUninstaller:
     def remove_python_libs(self):
         """Remove Python libraries"""
         self.log("Removing Python libraries...")
-        libs = ["megabas", "SM16relind", "SM16univin", "SM16uout", "SM8relind"]
+        libs = ["SMmegabas", "SM16relind", "SM16univin", "SM16uout", "SM8relind"]
         for lib in libs:
             try:
                 self.run_command(["pip3", "uninstall", "-y", lib])

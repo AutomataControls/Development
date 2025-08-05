@@ -316,9 +316,20 @@ For licensing inquiries, contact: licensing@automatanexus.com
     def install_python_libs(self):
         """Install Python libraries"""
         self.log("Installing Python libraries...")
-        libs = ["megabas", "SM16relind", "SM16univin", "SM16uout", "SM8relind", "requests"]
+        libs = ["SMmegabas", "SM16relind", "SM16univin", "SM16uout", "SM8relind", "requests"]
         for lib in libs:
-            self.run_command(["pip3", "install", lib])
+            try:
+                self.log(f"Installing {lib}...")
+                self.run_command(["pip3", "install", lib])
+                self.log(f"✓ {lib} installed successfully")
+            except Exception as e:
+                self.log(f"⚠ Warning: {lib} installation failed: {str(e)}")
+                # Try with sudo for system packages
+                try:
+                    self.run_command(["pip3", "install", lib, "-U"])
+                    self.log(f"✓ {lib} installed with update flag")
+                except:
+                    self.log(f"✗ {lib} installation failed completely")
             
     def install_sequent_drivers(self):
         """Install Sequent Microsystems drivers"""
