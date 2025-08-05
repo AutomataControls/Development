@@ -305,7 +305,9 @@ For licensing inquiries, contact: licensing@automatanexus.com
         self.overall_progress.pack(pady=(5, 10), padx=20)
         
         # Component progress
-        tk.Label(install_frame, text="Current Component:", font=("Arial", 10), bg="white").pack(anchor=tk.W, padx=20)
+        self.component_label = tk.Label(install_frame, text="Current Component: Preparing...", 
+                                       font=("Arial", 10), bg="white")
+        self.component_label.pack(anchor=tk.W, padx=20)
         self.component_progress = ttk.Progressbar(install_frame, length=740, mode='indeterminate')
         self.component_progress.pack(pady=(5, 20), padx=20)
         
@@ -670,7 +672,8 @@ WantedBy=multi-user.target
         progress = (self.current_step / self.total_steps) * 100
         self.root.after(0, lambda: [
             self.status_label.config(text=f"Installing: {status} ({self.current_step}/{self.total_steps})"),
-            self.overall_progress.config(value=progress)
+            self.overall_progress.config(value=progress),
+            self.component_label.config(text=f"Current Component: {status}")
         ])
         
     def log(self, message):
