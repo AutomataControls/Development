@@ -83,14 +83,19 @@ class AutomataNexusInstaller:
         try:
             from PIL import Image, ImageTk
             
+            # Get the current working directory and installer directory
+            current_dir = os.getcwd()
+            installer_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(installer_dir)
+            
             # Try multiple possible logo locations
             logo_paths = [
-                "public/automata-nexus-logo.png",
-                "../public/automata-nexus-logo.png", 
-                "public/images/automata-nexus-logo.png",
-                "../public/images/automata-nexus-logo.png",
-                os.path.join(os.path.dirname(os.path.abspath(__file__)), "../public/automata-nexus-logo.png"),
-                os.path.join(os.path.dirname(os.path.abspath(__file__)), "../public/images/automata-nexus-logo.png")
+                os.path.join(current_dir, "public/automata-nexus-logo.png"),
+                os.path.join(current_dir, "public/images/automata-nexus-logo.png"),
+                os.path.join(project_root, "public/automata-nexus-logo.png"),
+                os.path.join(project_root, "public/images/automata-nexus-logo.png"),
+                "/home/Automata/Development/projects/building-automation-controller/public/automata-nexus-logo.png",
+                "/home/Automata/Development/projects/building-automation-controller/public/images/automata-nexus-logo.png"
             ]
             
             for logo_path in logo_paths:
