@@ -62,15 +62,36 @@ class AutomataNexusInstaller:
         header_frame.pack_propagate(False)
         
         # Try to load actual logo, fallback to text
+        logo_loaded = False
         try:
             from PIL import Image, ImageTk
-            logo_img = Image.open("public/automata-nexus-logo.png")
-            logo_img = logo_img.resize((64, 64), Image.Resampling.LANCZOS)
-            logo_photo = ImageTk.PhotoImage(logo_img)
-            logo_label = tk.Label(header_frame, image=logo_photo, bg="#f8fafc")
-            logo_label.image = logo_photo  # Keep a reference
-            logo_label.pack(pady=10)
-        except:
+            
+            # Try multiple possible logo locations
+            logo_paths = [
+                "public/automata-nexus-logo.png",
+                "../public/automata-nexus-logo.png", 
+                "public/images/automata-nexus-logo.png",
+                "../public/images/automata-nexus-logo.png",
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), "../public/automata-nexus-logo.png"),
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), "../public/images/automata-nexus-logo.png")
+            ]
+            
+            for logo_path in logo_paths:
+                if os.path.exists(logo_path):
+                    self.log(f"Loading logo from: {logo_path}")
+                    logo_img = Image.open(logo_path)
+                    logo_img = logo_img.resize((64, 64), Image.Resampling.LANCZOS)
+                    logo_photo = ImageTk.PhotoImage(logo_img)
+                    logo_label = tk.Label(header_frame, image=logo_photo, bg="#f8fafc")
+                    logo_label.image = logo_photo  # Keep a reference
+                    logo_label.pack(pady=10)
+                    logo_loaded = True
+                    break
+                    
+        except Exception as e:
+            self.log(f"Could not load logo: {str(e)}")
+        
+        if not logo_loaded:
             # Primary color: hsl(221.2 83.2% 53.3%) = #3b82f6
             logo_label = tk.Label(header_frame, text="🏭", font=("Arial", 48), bg="#f8fafc", fg="#3b82f6")
             logo_label.pack(pady=10)
@@ -318,7 +339,7 @@ For licensing inquiries, contact: licensing@automatanexus.com
     def install_python_libs(self):
         """Install Python libraries"""
         self.log("Installing Python libraries...")
-        libs = ["SMmegabas", "SM16relind", "SM16univin", "SM16uout", "SM8relind", "requests"]
+        libs = ["SMmegabas", "SM16relind", "SM16univin", "SM16uout", "SM8relind", "requests", "Pillow"]
         for lib in libs:
             try:
                 self.log(f"Installing {lib}...")
