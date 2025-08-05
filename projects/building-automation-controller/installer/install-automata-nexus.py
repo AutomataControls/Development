@@ -18,6 +18,14 @@ from pathlib import Path
 
 class AutomataNexusInstaller:
     def __init__(self):
+        # Check if running as root first
+        if os.geteuid() != 0:
+            print("ERROR: This installer must be run as root (sudo)")
+            sys.exit(1)
+            
+        # Install PIL dependencies before showing GUI
+        self.install_pil_deps()
+        
         self.root = tk.Tk()
         self.root.title("Automata Nexus Automation Control Center - Installer")
         self.root.geometry("800x600")
@@ -55,6 +63,24 @@ class AutomataNexusInstaller:
         # Setup UI
         self.setup_ui()
         
+    def install_pil_deps(self):
+        """Install PIL dependencies before showing GUI"""
+        print("Installing GUI dependencies...")
+        try:
+            # Update package list
+            subprocess.run(["apt-get", "update", "-y"], check=True, capture_output=True)
+            
+            # Install PIL dependencies
+            subprocess.run([
+                "apt-get", "install", "-y", 
+                "python3-pil", "python3-pil.imagetk"
+            ], check=True, capture_output=True)
+            
+            print("✓ GUI dependencies installed successfully")
+        except subprocess.CalledProcessError as e:
+            print(f"⚠ Warning: Could not install GUI dependencies: {e}")
+            print("Continuing with text logo...")
+        
     def setup_ui(self):
         # Header with logo - using exact shadcn/ui colors
         # Background: hsl(210 40% 98%) converted to hex = #f8fafc
@@ -62,9 +88,12 @@ class AutomataNexusInstaller:
         header_frame.pack(fill=tk.X)
         header_frame.pack_propagate(False)
         
-        # Start with text logo, will update to image after dependencies installed
+        # Try to load logo immediately, fallback to text logo
         self.logo_label = tk.Label(header_frame, text="🏭", font=("Arial", 48), bg="#f8fafc", fg="#3b82f6")
         self.logo_label.pack(pady=10)
+        
+        # Try to load the actual logo immediately
+        self.load_logo_immediately()
         
         # Foreground: hsl(222.2 84% 4.9%) = #0f172a
         title_label = tk.Label(header_frame, text="Automata Nexus Automation Control Center", 
@@ -77,6 +106,46 @@ class AutomataNexusInstaller:
         
         # Show license agreement first
         self.show_license_agreement()
+    
+    def load_logo_immediately(self):
+        """Try to load logo immediately when GUI starts"""
+        try:
+            from PIL import Image, ImageTk
+            
+            # Get the current working directory and installer directory
+            current_dir = os.getcwd()
+            installer_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(installer_dir)
+            
+            # Try multiple possible logo locations
+            logo_paths = [
+                os.path.join(current_dir, "public/automata-nexus-logo.png"),
+                os.path.join(current_dir, "public/images/automata-nexus-logo.png"),
+                os.path.join(project_root, "public/automata-nexus-logo.png"),
+                os.path.join(project_root, "public/images/automata-nexus-logo.png"),
+                "/home/Automata/Development/projects/building-automation-controller/public/automata-nexus-logo.png",
+                "/home/Automata/Development/projects/building-automation-controller/public/images/automata-nexus-logo.png"
+            ]
+            
+            for logo_path in logo_paths:
+                if os.path.exists(logo_path):
+                    try:
+                        logo_img = Image.open(logo_path)
+                        logo_img = logo_img.resize((64, 64), Image.LANCZOS)
+                        logo_photo = ImageTk.PhotoImage(logo_img)
+                        
+                        # Update the existing logo label
+                        self.logo_label.configure(image=logo_photo, text="")
+                        self.logo_label.image = logo_photo  # Keep a reference
+                        print("✓ Logo loaded successfully")
+                        return
+                    except Exception as img_e:
+                        print(f"Error loading image {logo_path}: {str(img_e)}")
+                        continue
+                    
+        except Exception as e:
+            print(f"Could not load logo: {str(e)}")
+            # Keep the text logo
     
     def update_logo(self):
         """Update the logo after PIL dependencies are installed"""
@@ -247,12 +316,6 @@ For licensing inquiries, contact: licensing@automatanexus.com
         
     def run_installation(self):
         try:
-            # Check if running as root
-            if os.geteuid() != 0:
-                self.log("ERROR: This installer must be run as root (sudo)")
-                messagebox.showerror("Error", "Please run this installer with sudo")
-                return
-                
             self.log("Starting Automata Nexus installation...")
             self.log(f"Target directory: {self.install_path}")
             
@@ -380,13 +443,6 @@ For licensing inquiries, contact: licensing@automatanexus.com
             "python3-pil", "python3-pil.imagetk"  # For logo display in installer
         ]
         self.run_command(["apt-get", "install", "-y"] + packages)
-        
-        # Now that PIL is installed, try to load the actual logo
-        self.log("Attempting to update logo after installing PIL...")
-        self.update_logo()
-        
-        # Also try again after a short delay
-        self.root.after(1000, self.update_logo)
         
     def install_python_libs(self):
         """Install Python libraries"""
