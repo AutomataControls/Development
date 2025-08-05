@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Building Automation Controller</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e8ba3 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        
+        /* Header */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .app-title {
+            font-size: 24px;
+            font-weight: 300;
+            background: linear-gradient(135deg, #2a5298, #1e3c72);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .status-bar {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4CAF50;
+        }
+        
+        .status-dot.error {
+            background: #f44336;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 0 2rem;
+            overflow-x: auto;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        .tab-btn {
+            padding: 1rem 1.5rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            color: #555;
+            font-size: 14px;
+            font-weight: 500;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-btn:hover {
+            background: rgba(42, 82, 152, 0.1);
+            color: #2a5298;
+        }
+        
+        .tab-btn.active {
+            color: #2a5298;
+            background: rgba(42, 82, 152, 0.05);
+        }
+        
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #2a5298;
+        }
+        
+        /* Content */
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Cards */
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .card-title {
+            font-size: 18px;
+            font-weight: 500;
+            color: #2a5298;
+        }
+        
+        /* Board Grid */
+        .board-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .board-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .board-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        .board-type {
+            font-weight: 600;
+            color: #2a5298;
+        }
+        
+        .board-stack {
+            background: #2a5298;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 12px;
+        }
+        
+        /* I/O Controls */
+        .io-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .io-item {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .io-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        .io-value {
+            font-size: 20px;
+            font-weight: 300;
+            color: #2a5298;
+        }
+        
+        .io-control {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        /* Inputs */
+        input[type="range"] {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 3px;
+            outline: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #2a5298;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #2a5298;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1e3c72;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(42, 82, 152, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(0, 0, 0, 0.1);
+            color: #555;
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(0, 0, 0, 0.15);
+        }
+        
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+        
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 24px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .toggle-switch.active {
+            background: #4CAF50;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .toggle-switch.active .toggle-slider {
+            transform: translateX(26px);
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            z-index: 1000;
+        }
+        
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .modal-title {
+            font-size: 20px;
+            font-weight: 500;
+            color: #2a5298;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+        
+        .close-btn:hover {
+            color: #555;
+        }
+        
+        /* Forms */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 14px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        /* Mapping Table */
+        .mapping-table {
+            width: 100%;
+            margin-top: 1rem;
+        }
+        
+        .mapping-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            align-items: center;
+        }
+        
+        .mapping-row input {
+            padding: 0.5rem;
+        }
+        
+        /* Loading */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-top-color: #2a5298;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .content {
+                padding: 1rem;
+            }
+            
+            .board-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">
+            <h1 class="app-title">Building Automation Controller</h1>
+            <div class="status-bar">
+                <div class="status-indicator">
+                    <div class="status-dot" id="connectionStatus"></div>
+                    <span id="connectionText">Scanning...</span>
+                </div>
+                <button class="btn btn-secondary" onclick="scanBoards()">Rescan</button>
+            </div>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('io')">I/O Control</button>
+            <button class="tab-btn" onclick="switchTab('expansion')">Expansion Boards</button>
+            <button class="tab-btn" onclick="switchTab('logic')">Control Logic</button>
+            <button class="tab-btn" onclick="switchTab('export')">Data Export</button>
+            <button class="tab-btn" onclick="switchTab('monitoring')">Monitoring</button>
+        </div>
+        
+        <div class="content">
+            <!-- I/O Control Tab -->
+            <div id="io-tab" class="tab-content active">
+                <div id="megabasBoard"></div>
+            </div>
+            
+            <!-- Expansion Boards Tab -->
+            <div id="expansion-tab" class="tab-content">
+                <div class="board-grid" id="expansionBoards"></div>
+            </div>
+            
+            <!-- Control Logic Tab -->
+            <div id="logic-tab" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Control Logic Files</h3>
+                        <button class="btn btn-primary" onclick="openUploadLogicModal()">Upload Logic File</button>
+                    </div>
+                    <div id="logicFilesList"></div>
+                </div>
+                
+                <div class="card">
+                    <h3 class="card-title">Control Status</h3>
+                    <div id="controlStatus"></div>
+                </div>
+            </div>
+            
+            <!-- Data Export Tab -->
+            <div id="export-tab" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">BMS Metric Sender</h3>
+                        <button class="btn btn-primary" onclick="openBMSModal()">Configure</button>
+                    </div>
+                    <div id="bmsStatus"></div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Processing Validation Proxy</h3>
+                        <button class="btn btn-primary" onclick="openProcessingModal()">Configure</button>
+                    </div>
+                    <div id="processingStatus"></div>
+                </div>
+            </div>
+            
+            <!-- Monitoring Tab -->
+            <div id="monitoring-tab" class="tab-content">
+                <div class="card">
+                    <h3 class="card-title">System Status</h3>
+                    <div id="systemStatus"></div>
+                </div>
+                
+                <div class="card">
+                    <h3 class="card-title">Recent Activity</h3>
+                    <div id="activityLog"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- BMS Configuration Modal -->
+    <div id="bmsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">BMS Metric Sender Configuration</h3>
+                <button class="close-btn" onclick="closeModal('bmsModal')">&times;</button>
+            </div>
+            
+            <form id="bmsForm">
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" id="bmsEnabled"> Enable BMS Export
+                    </label>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Location Name</label>
+                        <input type="text" id="bmsLocationName" placeholder="YOUR_LOCATION_NAME">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">System Name</label>
+                        <input type="text" id="bmsSystemName" placeholder="YOUR_SYSTEM_NAME">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Location ID</label>
+                        <input type="text" id="bmsLocationId" placeholder="YOUR_LOCATION_ID">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Equipment ID</label>
+                        <input type="text" id="bmsEquipmentId" placeholder="YOUR_EQUIPMENT_ID">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Equipment Type</label>
+                        <select id="bmsEquipmentType">
+                            <option value="air_handler">Air Handler</option>
+                            <option value="chiller">Chiller</option>
+                            <option value="boiler">Boiler</option>
+                            <option value="pump">Pump</option>
+                            <option value="fan">Fan</option>
+                            <option value="vav">VAV Box</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Zone</label>
+                        <input type="text" id="bmsZone" placeholder="YOUR_ZONE_NAME">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">InfluxDB URL</label>
+                    <input type="text" id="bmsUrl" value="http://143.198.162.31:8181/api/v3/write_lp?db=Locations&precision=nanosecond">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Value Mappings</label>
+                    <div id="bmsMappings" class="mapping-table"></div>
+                    <button type="button" class="btn btn-secondary" onclick="addBMSMapping()">Add Mapping</button>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-primary" onclick="saveBMSConfig()">Save Configuration</button>
+                    <button type="button" class="btn btn-secondary" onclick="testBMSConnection()">Test Connection</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Processing Configuration Modal -->
+    <div id="processingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Processing Validation Configuration</h3>
+                <button class="close-btn" onclick="closeModal('processingModal')">&times;</button>
+            </div>
+            
+            <form id="processingForm">
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" id="processingEnabled"> Enable Processing Export
+                    </label>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Location Name</label>
+                        <input type="text" id="processingLocationName" placeholder="YOUR_LOCATION_NAME">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">System Name</label>
+                        <input type="text" id="processingSystemName" placeholder="YOUR_SYSTEM_NAME">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Location ID</label>
+                        <input type="text" id="processingLocationId" placeholder="YOUR_LOCATION_ID">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Equipment ID</label>
+                        <input type="text" id="processingEquipmentId" placeholder="YOUR_EQUIPMENT_ID">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Equipment Type</label>
+                        <select id="processingEquipmentType">
+                            <option value="ahu">AHU</option>
+                            <option value="chiller">Chiller</option>
+                            <option value="boiler">Boiler</option>
+                            <option value="pump">Pump</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Zone</label>
+                        <input type="text" id="processingZone" placeholder="YOUR_ZONE_NAME">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Processing URL</label>
+                        <input type="text" id="processingUrl" value="http://143.198.162.31">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Port</label>
+                        <input type="number" id="processingPort" placeholder="LOCATION_PORT">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Value Mappings</label>
+                    <div id="processingMappings" class="mapping-table"></div>
+                    <button type="button" class="btn btn-secondary" onclick="addProcessingMapping()">Add Mapping</button>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-primary" onclick="saveProcessingConfig()">Save Configuration</button>
+                    <button type="button" class="btn btn-secondary" onclick="testProcessingConnection()">Test Connection</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Logic File Upload Modal -->
+    <div id="logicUploadModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Upload Control Logic File</h3>
+                <button class="close-btn" onclick="closeModal('logicUploadModal')">&times;</button>
+            </div>
+            
+            <form id="logicUploadForm">
+                <div class="form-group">
+                    <label class="form-label">Logic File Name</label>
+                    <input type="text" id="logicFileName" placeholder="e.g., Air Handler Control" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Equipment Type</label>
+                        <select id="logicEquipmentType" required>
+                            <option value="">Select Equipment Type</option>
+                            <option value="air-handler">Air Handler</option>
+                            <option value="chiller">Chiller</option>
+                            <option value="boiler">Boiler</option>
+                            <option value="pump">Pump</option>
+                            <option value="fan">Fan</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Equipment ID</label>
+                        <input type="text" id="logicEquipmentId" placeholder="e.g., AHU-1" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Location ID</label>
+                        <input type="text" id="logicLocationId" placeholder="e.g., 9" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Control Interval (seconds)</label>
+                        <input type="number" id="logicInterval" value="5" min="1" max="3600" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea id="logicDescription" rows="3" placeholder="Describe what this logic file does" style="width: 100%; padding: 0.75rem; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px;"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Logic File Content</label>
+                    <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem;">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('logicFileInput').click()">Choose File</button>
+                        <span id="selectedFileName" style="align-self: center; color: #666;">No file selected</span>
+                    </div>
+                    <input type="file" id="logicFileInput" accept=".js,.ts" style="display: none;" onchange="handleFileSelect(event)">
+                    <textarea id="logicContent" rows="15" placeholder="Or paste your JavaScript logic here..." style="width: 100%; padding: 0.75rem; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; font-family: monospace; font-size: 13px;"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">I/O Mapping</label>
+                    <div style="background: rgba(0,0,0,0.05); padding: 1rem; border-radius: 6px; font-size: 14px;">
+                        <p style="margin-bottom: 0.5rem;"><strong>Default Mappings:</strong></p>
+                        <ul style="margin: 0; padding-left: 1.5rem;">
+                            <li>Supply Temperature: Analog Input 1 (0-10V → 0-100°F)</li>
+                            <li>Return Temperature: Analog Input 2</li>
+                            <li>Outdoor Temperature: Analog Input 3</li>
+                            <li>Mixed Air Temperature: Analog Input 4</li>
+                            <li>Static Pressure: Analog Input 5</li>
+                            <li>Heating Valve: Analog Output 1</li>
+                            <li>Cooling Valve: Analog Output 2</li>
+                            <li>Fan VFD: Analog Output 3</li>
+                            <li>Outdoor Damper: Triac 1</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-primary" onclick="uploadLogicFile()">Upload Logic File</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('logicUploadModal')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
