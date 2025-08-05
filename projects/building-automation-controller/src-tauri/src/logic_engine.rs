@@ -156,31 +156,74 @@ impl LogicEngine {
         logic_id: &str,
         inputs: LogicInputs,
     ) -> Result<LogicOutputs, String> {
-        let logic_file = self.logic_files.get_mut(logic_id)
-            .ok_or("Logic file not found")?;
-
-        if !logic_file.is_active {
-            return Err("Logic file is not active".to_string());
-        }
+        // Check if logic file exists and is active
+        let (is_active, location_id, equipment_id, logic_content) = {
+            let logic_file = self.logic_files.get(logic_id)
+                .ok_or("Logic file not found")?;
+            
+            if !logic_file.is_active {
+                return Err("Logic file is not active".to_string());
+            }
+            
+            // Read the file content from disk
+            let content = fs::read_to_string(&logic_file.file_path)
+                .map_err(|e| format!("Failed to read logic file: {}", e))?;
+            
+            (logic_file.is_active, 
+             logic_file.location_id.clone(), 
+             logic_file.equipment_id.clone(),
+             content)
+        };
 
         let start_time = std::time::Instant::now();
         
         // Get or create state storage for this logic
-        let state_key = format!("{}_{}", logic_file.location_id, logic_file.equipment_id);
+        let state_key = format!("{}_{}", location_id, equipment_id);
         if !self.state_storage.contains_key(&state_key) {
             self.state_storage.insert(state_key.clone(), HashMap::new());
         }
 
+        // Create a temporary logic file struct for execution
+        let temp_logic_file = LogicFile {
+            id: logic_id.to_string(),
+            name: String::new(),
+            file_path: self.logic_files.get(logic_id)
+                .ok_or("Logic file not found")?
+                .file_path.clone(),
+            equipment_type: String::new(),
+            location_id: location_id.clone(),
+            equipment_id: equipment_id.clone(),
+            description: String::new(),
+            last_modified: Utc::now(),
+            is_active,
+            execution_interval: 30,
+            last_execution: None,
+            execution_count: 0,
+            last_error: None,
+        };
+        
         // Execute the JavaScript logic using Node.js
-        let result = self.execute_javascript_logic(logic_file, &inputs).await;
+        let result = self.execute_javascript_logic(&temp_logic_file, &inputs).await;
         
         let execution_time = start_time.elapsed().as_millis() as u64;
-        logic_file.execution_count += 1;
-        logic_file.last_execution = Some(Utc::now());
+        
+        // Update logic file metrics
+        if let Some(logic_file) = self.logic_files.get_mut(logic_id) {
+            logic_file.execution_count += 1;
+            logic_file.last_execution = Some(Utc::now());
+            
+            match &result {
+                Ok(_) => {
+                    logic_file.last_error = None;
+                }
+                Err(e) => {
+                    logic_file.last_error = Some(e.clone());
+                }
+            }
+        }
 
         match result {
             Ok(outputs) => {
-                logic_file.last_error = None;
                 
                 let execution = LogicExecution {
                     logic_id: logic_id.to_string(),
@@ -202,7 +245,10 @@ impl LogicEngine {
                 Ok(outputs)
             }
             Err(error) => {
-                logic_file.last_error = Some(error.clone());
+                // Update the logic file's last_error in the hashmap
+                if let Some(logic_file) = self.logic_files.get_mut(logic_id) {
+                    logic_file.last_error = Some(error.clone());
+                }
                 
                 let execution = LogicExecution {
                     logic_id: logic_id.to_string(),

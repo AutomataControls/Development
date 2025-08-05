@@ -56,10 +56,6 @@
         "minWidth": 1200,
         "minHeight": 800
       }
-    ],
-    "server": {
-      "host": "0.0.0.0",
-      "port": 1420
-    }
+    ]
   }
 }

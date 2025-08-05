@@ -3,7 +3,6 @@
 mod logic_engine;
 mod metrics_db;
 
-use tauri::Manager;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use std::collections::HashMap;
@@ -374,8 +373,10 @@ async fn read_board_io(
     state: tauri::State<'_, AppState>,
     board_id: String,
 ) -> Result<IoState, String> {
-    let boards = state.boards.lock().unwrap();
-    let board = boards.get(&board_id).ok_or("Board not found")?;
+    let board = {
+        let boards = state.boards.lock().unwrap();
+        boards.get(&board_id).cloned().ok_or("Board not found")?
+    };
 
     let mut io_state = IoState {
         board_id: board_id.clone(),
@@ -479,8 +480,10 @@ async fn set_analog_output(
     value: f64,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let boards = state.boards.lock().unwrap();
-    let board = boards.get(&board_id).ok_or("Board not found")?;
+    let board = {
+        let boards = state.boards.lock().unwrap();
+        boards.get(&board_id).cloned().ok_or("Board not found")?
+    };
 
     match board.board_type.as_str() {
         "SM-I-002 Building Automation" => {
@@ -500,8 +503,10 @@ async fn set_relay_state(
     state_val: bool,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let boards = state.boards.lock().unwrap();
-    let board = boards.get(&board_id).ok_or("Board not found")?;
+    let board = {
+        let boards = state.boards.lock().unwrap();
+        boards.get(&board_id).cloned().ok_or("Board not found")?
+    };
 
     match board.board_type.as_str() {
         "SM8relind 8-Relay" => {
@@ -521,8 +526,10 @@ async fn set_triac_state(
     state_val: bool,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let boards = state.boards.lock().unwrap();
-    let board = boards.get(&board_id).ok_or("Board not found")?;
+    let board = {
+        let boards = state.boards.lock().unwrap();
+        boards.get(&board_id).cloned().ok_or("Board not found")?
+    };
 
     match board.board_type.as_str() {
         "SM-I-002 Building Automation" => {
@@ -579,16 +586,20 @@ async fn query_bms_commands(
     location_id: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<BmsCommand>, String> {
-    let bms_configs = state.bms_configs.lock().unwrap();
-    
-    // Find BMS config for this equipment
-    let bms_config = bms_configs.values()
-        .find(|config| config.equipment_id == equipment_id && config.location_id == location_id)
-        .ok_or("BMS configuration not found")?;
+    let (enabled, bms_server_url) = {
+        let bms_configs = state.bms_configs.lock().unwrap();
+        
+        // Find BMS config for this equipment
+        let bms_config = bms_configs.values()
+            .find(|config| config.equipment_id == equipment_id && config.location_id == location_id)
+            .ok_or("BMS configuration not found")?;
 
-    if !bms_config.enabled {
-        return Err("BMS integration is disabled".to_string());
-    }
+        if !bms_config.enabled {
+            return Err("BMS integration is disabled".to_string());
+        }
+        
+        (bms_config.enabled, bms_config.bms_server_url.clone())
+    };
 
     // Build the InfluxDB query exactly as specified
     let query = format!(
@@ -615,7 +626,7 @@ async fn query_bms_commands(
         .arg("-s")
         .arg("-X")
         .arg("POST")
-        .arg(&bms_config.bms_server_url)
+        .arg(&bms_server_url)
         .arg("-H")
         .arg("Content-Type: application/json")
         .arg("-H")
@@ -742,19 +753,22 @@ async fn execute_logic_file(
     }
     
     // Get current I/O state
-    let io_states = state.io_states.lock().unwrap();
-    let io_state = io_states.get(&board_id);
-
-    // Get BMS config to check if we should use BMS commands
-    let bms_configs = state.bms_configs.lock().unwrap();
-    let bms_config = bms_configs.get(&board_id);
+    let (io_state, bms_config) = {
+        let io_states = state.io_states.lock().unwrap();
+        let io_state = io_states.get(&board_id).cloned();
+        
+        let bms_configs = state.bms_configs.lock().unwrap();
+        let bms_config = bms_configs.get(&board_id).cloned();
+        
+        (io_state, bms_config)
+    };
 
     // Prepare inputs
     let mut metrics = HashMap::new();
     let mut settings = HashMap::new();
     let mut board_io = HashMap::new();
 
-    if let Some(io) = io_state {
+    if let Some(io) = io_state.as_ref() {
         // Map I/O to common HVAC metrics
         if !io.analog_inputs.is_empty() {
             metrics.insert("SupplyTemp".to_string(), io.analog_inputs.get(0).copied().unwrap_or(0.0) * 10.0);
@@ -770,7 +784,7 @@ async fn execute_logic_file(
     }
 
     // Check if we should use BMS commands or local logic
-    let use_bms = if let Some(config) = bms_config {
+    let use_bms = if let Some(config) = bms_config.as_ref() {
         config.enabled && {
             let status = state.bms_connection_status.lock().unwrap();
             status.connected
@@ -781,11 +795,11 @@ async fn execute_logic_file(
 
     if use_bms {
         // Try to get commands from BMS first
-        if let Some(config) = bms_config {
+        if let Some(config) = bms_config.as_ref() {
             match query_bms_commands(config.equipment_id.clone(), config.location_id.clone(), state.clone()).await {
                 Ok(bms_commands) => {
                     // Execute BMS commands instead of local logic
-                    return execute_bms_commands(bms_commands, board_id, state).await;
+                    return execute_bms_commands(bms_commands, board_id, state.clone()).await;
                 }
                 Err(e) => {
                     // BMS failed, fall back to local logic if enabled
@@ -818,8 +832,18 @@ async fn execute_logic_file(
         status.command_source = "local".to_string();
     }
 
-    let mut logic_engine = state.logic_engine.lock().unwrap();
-    logic_engine.execute_logic(&logic_id, inputs).await
+    // Clone logic engine for async execution
+    let result = {
+        let mut logic_engine = state.logic_engine.lock().unwrap();
+        // Use block-on to execute the async method synchronously within the lock
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(
+                logic_engine.execute_logic(&logic_id, inputs)
+            )
+        })
+    };
+    
+    result
 }
 
 #[tauri::command]
@@ -828,8 +852,10 @@ async fn apply_logic_outputs(
     board_id: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let boards = state.boards.lock().unwrap();
-    let board = boards.get(&board_id).ok_or("Board not found")?;
+    let board = {
+        let boards = state.boards.lock().unwrap();
+        boards.get(&board_id).cloned().ok_or("Board not found")?
+    };
 
     // Apply analog outputs
     if let Some(heating_valve) = outputs.heating_valve_position {
@@ -962,7 +988,7 @@ async fn clone_firmware_repo(repo_name: String) -> Result<String, String> {
         .ok_or("Repository not found")?;
     
     // Create Automata directory if it doesn't exist
-    let output = Command::new("mkdir")
+    let _output = Command::new("mkdir")
         .arg("-p")
         .arg("/home/Automata")
         .output()
@@ -1116,7 +1142,7 @@ fn parse_influx_commands(
     
     if let Some(series) = response.series {
         for serie in series {
-            if let Some(columns) = serie.columns.get(0) {
+            if let Some(_columns) = serie.columns.get(0) {
                 // Find column indices
                 let mut time_idx = None;
                 let mut command_type_idx = None;
@@ -1407,7 +1433,7 @@ async fn read_16univin_digital(stack: u8, channel: u8) -> Result<bool, String> {
         .map_err(|e| format!("Failed to execute command: {}", e))?;
 
     if output.status.success() {
-        let value = String::from_utf8_lossy(&output.stdout).trim();
+        let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
         Ok(value == "True" || value == "1")
     } else {
         Err("Failed to read input".to_string())
@@ -1616,56 +1642,59 @@ async fn store_board_metrics(
     board_id: String,
     board_config: BoardConfig,
 ) -> Result<usize, String> {
-    let metrics_db = state.metrics_db.lock().unwrap();
-    
-    if let Some(db) = metrics_db.as_ref() {
+    // Get IO state first
+    let io_state = {
         let io_states = state.io_states.lock().unwrap();
-        let io_state = io_states.get(&board_id).ok_or("Board IO state not found")?;
-        
-        let mut metrics = Vec::new();
-        
-        // Store universal inputs
-        for (i, value) in io_state.analog_inputs.iter().enumerate() {
-            if let Some(channel_config) = board_config.universal_inputs.get(i) {
-                if channel_config.enabled {
-                    let scaled_value = calculate_scaled_value(channel_config, *value);
-                    metrics.push((
-                        board_id.clone(),
-                        "universal_input".to_string(),
-                        i as i32,
-                        channel_config.name.clone(),
-                        *value,
-                        Some(scaled_value),
-                        Some(channel_config.units.clone()),
-                    ));
-                }
+        io_states.get(&board_id).cloned().ok_or("Board IO state not found")?
+    };
+    
+    // Prepare metrics
+    let mut metrics = Vec::new();
+    
+    // Store universal inputs
+    for (i, value) in io_state.analog_inputs.iter().enumerate() {
+        if let Some(channel_config) = board_config.universal_inputs.get(i) {
+            if channel_config.enabled {
+                let scaled_value = calculate_scaled_value(channel_config, *value);
+                metrics.push((
+                    board_id.clone(),
+                    "universal_input".to_string(),
+                    i as i32,
+                    channel_config.name.clone(),
+                    *value,
+                    Some(scaled_value),
+                    Some(channel_config.units.clone()),
+                ));
             }
         }
-        
-        // Store analog outputs
-        for (i, value) in io_state.analog_outputs.iter().enumerate() {
-            if let Some(channel_config) = board_config.analog_outputs.get(i) {
-                if channel_config.enabled {
-                    metrics.push((
-                        board_id.clone(),
-                        "analog_output".to_string(),
-                        i as i32,
-                        channel_config.name.clone(),
-                        *value,
-                        None,
-                        Some(channel_config.units.clone()),
-                    ));
-                }
+    }
+    
+    // Store analog outputs
+    for (i, value) in io_state.analog_outputs.iter().enumerate() {
+        if let Some(channel_config) = board_config.analog_outputs.get(i) {
+            if channel_config.enabled {
+                metrics.push((
+                    board_id.clone(),
+                    "analog_output".to_string(),
+                    i as i32,
+                    channel_config.name.clone(),
+                    *value,
+                    None,
+                    Some(channel_config.units.clone()),
+                ));
             }
         }
-        
-        // Store metrics batch
-        match db.insert_metrics_batch(metrics).await {
-            Ok(count) => Ok(count),
-            Err(e) => Err(format!("Failed to store metrics: {}", e)),
-        }
-    } else {
-        Err("Metrics database not initialized".to_string())
+    }
+    
+    // Store metrics batch
+    let db = {
+        let metrics_db = state.metrics_db.lock().unwrap();
+        metrics_db.as_ref().cloned().ok_or("Metrics database not initialized")?
+    };
+    
+    match db.insert_metrics_batch(metrics).await {
+        Ok(count) => Ok(count),
+        Err(e) => Err(format!("Failed to store metrics: {}", e)),
     }
 }
 
@@ -1677,15 +1706,14 @@ async fn get_trend_data(
     channel_index: i32,
     hours: i32,
 ) -> Result<TrendData, String> {
-    let metrics_db = state.metrics_db.lock().unwrap();
+    let db = {
+        let metrics_db = state.metrics_db.lock().unwrap();
+        metrics_db.as_ref().cloned().ok_or("Metrics database not initialized")?
+    };
     
-    if let Some(db) = metrics_db.as_ref() {
-        match db.get_trend_data(&board_id, &channel_type, channel_index, hours).await {
-            Ok(data) => Ok(data),
-            Err(e) => Err(format!("Failed to get trend data: {}", e)),
-        }
-    } else {
-        Err("Metrics database not initialized".to_string())
+    match db.get_trend_data(&board_id, &channel_type, channel_index, hours).await {
+        Ok(data) => Ok(data),
+        Err(e) => Err(format!("Failed to get trend data: {}", e)),
     }
 }
 
@@ -1694,9 +1722,12 @@ async fn query_metrics(
     state: tauri::State<'_, AppState>,
     query: MetricQuery,
 ) -> Result<Vec<metrics_db::Metric>, String> {
-    let metrics_db = state.metrics_db.lock().unwrap();
+    let db = {
+        let metrics_db = state.metrics_db.lock().unwrap();
+        metrics_db.as_ref().cloned()
+    };
     
-    if let Some(db) = metrics_db.as_ref() {
+    if let Some(db) = db {
         match db.query_metrics(query).await {
             Ok(metrics) => Ok(metrics),
             Err(e) => Err(format!("Failed to query metrics: {}", e)),
@@ -1711,9 +1742,12 @@ async fn get_channel_list(
     state: tauri::State<'_, AppState>,
     board_id: String,
 ) -> Result<Vec<(String, String, i32, String)>, String> {
-    let metrics_db = state.metrics_db.lock().unwrap();
+    let db = {
+        let metrics_db = state.metrics_db.lock().unwrap();
+        metrics_db.as_ref().cloned()
+    };
     
-    if let Some(db) = metrics_db.as_ref() {
+    if let Some(db) = db {
         match db.get_channel_list(&board_id).await {
             Ok(channels) => Ok(channels),
             Err(e) => Err(format!("Failed to get channel list: {}", e)),
@@ -1725,19 +1759,49 @@ async fn get_channel_list(
 
 // Helper function to calculate scaled value
 fn calculate_scaled_value(channel_config: &ChannelConfig, raw_value: f64) -> f64 {
-    if channel_config.input_type == Some("digital".to_string()) {
-        return if raw_value > 5.0 { 1.0 } else { 0.0 };
+    match channel_config.input_type.as_deref() {
+        Some("digital") => {
+            if raw_value > 5.0 { 1.0 } else { 0.0 }
+        }
+        Some("thermistor_10k_type2") => {
+            // Convert voltage to resistance for 10K thermistor with 10K pull-up
+            // Voltage divider: Vout = Vin * (Rtherm / (Rpullup + Rtherm))
+            // Rearranged: Rtherm = Rpullup * (Vout / (Vin - Vout))
+            let vin = 10.0; // 10V supply
+            let rpullup = 10000.0; // 10K pull-up resistor
+            
+            if raw_value >= vin {
+                return -999.0; // Error value for open circuit
+            }
+            
+            let rtherm = rpullup * (raw_value / (vin - raw_value));
+            
+            // Steinhart-Hart equation coefficients for 10K Type 2 thermistor
+            let a = 0.001468069;
+            let b = 0.00023887;
+            let c = 0.00000010792;
+            
+            // Steinhart-Hart equation: 1/T = A + B*ln(R) + C*(ln(R))^3
+            let ln_r = rtherm.ln();
+            let inv_t = a + b * ln_r + c * ln_r.powi(3);
+            let temp_k = 1.0 / inv_t;
+            let temp_c = temp_k - 273.15;
+            let temp_f = temp_c * 9.0 / 5.0 + 32.0;
+            
+            // Apply calibration offset to final temperature
+            temp_f + channel_config.calibration_offset
+        }
+        Some("current") => {
+            // 4-20mA scaling
+            let scaled = ((raw_value - 4.0) / 16.0) * (channel_config.scaling_max - channel_config.scaling_min) + channel_config.scaling_min;
+            scaled + channel_config.calibration_offset
+        }
+        _ => {
+            // Default 0-10V scaling
+            let scaled = (raw_value / 10.0) * (channel_config.scaling_max - channel_config.scaling_min) + channel_config.scaling_min;
+            scaled + channel_config.calibration_offset
+        }
     }
-    
-    let scaled = if channel_config.input_type == Some("current".to_string()) {
-        // 4-20mA scaling
-        ((raw_value - 4.0) / 16.0) * (channel_config.scaling_max - channel_config.scaling_min) + channel_config.scaling_min
-    } else {
-        // 0-10V scaling
-        (raw_value / 10.0) * (channel_config.scaling_max - channel_config.scaling_min) + channel_config.scaling_min
-    };
-    
-    scaled + channel_config.calibration_offset
 }
 
 #[tokio::main]
