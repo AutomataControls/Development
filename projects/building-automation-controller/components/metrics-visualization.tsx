@@ -55,9 +55,21 @@ interface Metric {
   timestamp: string
 }
 
+interface ChannelConfig {
+  enabled: boolean
+  name: string
+  [key: string]: any
+}
+
+interface BoardConfig {
+  universal_inputs?: ChannelConfig[]
+  analog_outputs?: ChannelConfig[]
+  [key: string]: any
+}
+
 interface MetricsVisualizationProps {
   boardId: string
-  boardConfig?: any
+  boardConfig?: BoardConfig
 }
 
 export default function MetricsVisualization({ boardId, boardConfig }: MetricsVisualizationProps) {
@@ -71,10 +83,10 @@ export default function MetricsVisualization({ boardId, boardConfig }: MetricsVi
   // Build channel list from board config
   useEffect(() => {
     if (boardConfig) {
-      const channelList = []
+      const channelList: Array<{ type: string; index: number; name: string }> = []
       
       // Add universal inputs
-      boardConfig.universal_inputs?.forEach((channel: any, index: number) => {
+      boardConfig.universal_inputs?.forEach((channel, index) => {
         if (channel.enabled) {
           channelList.push({
             type: "universal_input",
@@ -85,7 +97,7 @@ export default function MetricsVisualization({ boardId, boardConfig }: MetricsVi
       })
       
       // Add analog outputs
-      boardConfig.analog_outputs?.forEach((channel: any, index: number) => {
+      boardConfig.analog_outputs?.forEach((channel, index) => {
         if (channel.enabled) {
           channelList.push({
             type: "analog_output",
