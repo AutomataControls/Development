@@ -217,6 +217,25 @@ async fn execute_logic(script: String) -> Result<LogicResult, String>
   - Superheat/subcooling calculations
   - Fault pattern recognition
   - Pressure-temperature validation
+
+### BACnet/Modbus Protocol Integration
+- Network Protocols:
+  - BACnet/IP (UDP port 47808)
+  - Modbus TCP (TCP port 502)
+- RS485 Protocols via USB Adapters:
+  - BACnet MS/TP (9600-76800 baud)
+  - Modbus RTU (9600-115200 baud)
+- Features:
+  - Device discovery and enumeration
+  - Point mapping and aliasing
+  - Real-time read/write operations
+  - Exception handling and retries
+  - Multi-protocol gateway functionality
+- Supported USB Adapters:
+  - FTDI FT232R
+  - CH340/CH341
+  - CP2102/CP2104
+  - Prolific PL2303
   - System efficiency analysis
 - Supported refrigerants:
   - Modern A2L: R-454B, R-32, R-452B

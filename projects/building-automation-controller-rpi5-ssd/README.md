@@ -136,6 +136,9 @@ Access the web interface at `http://raspberrypi.local:1420`
 2. **Expansion Boards Tab**: Configure and control expansion boards
 3. **Data Export Tab**: Configure BMS and processing endpoints
 4. **Monitoring Tab**: Real-time system status and logs
+5. **Protocol Manager**: BACnet and Modbus integration
+6. **Vibration Monitoring**: ISO 10816-3 compliant monitoring
+7. **Refrigerant Diagnostics**: ASHRAE 207-2021 compliant analysis
 
 ## Hardware Configuration
 

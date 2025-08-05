@@ -4,6 +4,7 @@ mod logic_engine;
 mod metrics_db;
 mod vibration_sensor;
 mod refrigerant_diagnostics;
+mod protocols;
 
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
@@ -18,6 +19,7 @@ use refrigerant_diagnostics::{
     P499Configuration, TransducerReading,
     SystemConfiguration, DiagnosticReading, DiagnosticResult
 };
+use protocols::{ProtocolManager, ProtocolConfig, ProtocolType, ConnectionType, PointValue};
 
 struct AppState {
     boards: Mutex<HashMap<String, BoardInfo>>,
@@ -31,6 +33,7 @@ struct AppState {
     vibration_manager: Mutex<VibrationManager>,
     refrigerant_diagnostics: Mutex<RefrigerantDiagnosticsManager>,
     refrigerant_systems: Mutex<HashMap<String, SystemConfiguration>>,
+    protocol_manager: Mutex<Option<ProtocolManager>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -247,6 +250,7 @@ impl AppState {
             vibration_manager: Mutex::new(VibrationManager::new()),
             refrigerant_diagnostics: Mutex::new(RefrigerantDiagnosticsManager::new()),
             refrigerant_systems: Mutex::new(HashMap::new()),
+            protocol_manager: Mutex::new(None),  // Will be initialized when needed
         }
     }
 }
@@ -2127,6 +2131,136 @@ fn calculate_scaled_value(channel_config: &ChannelConfig, raw_value: f64) -> f64
     }
 }
 
+// Protocol Integration Commands
+
+#[tauri::command]
+async fn initialize_protocols(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut protocol_manager = state.protocol_manager.lock().unwrap();
+    
+    if protocol_manager.is_none() {
+        match ProtocolManager::new().await {
+            Ok(manager) => {
+                *protocol_manager = Some(manager);
+                Ok(())
+            }
+            Err(e) => Err(format!("Failed to initialize protocol manager: {}", e))
+        }
+    } else {
+        Ok(()) // Already initialized
+    }
+}
+
+#[tauri::command]
+async fn get_available_serial_ports(state: tauri::State<'_, AppState>) -> Result<Vec<String>, String> {
+    // Ensure protocol manager is initialized
+    initialize_protocols(state.clone()).await?;
+    
+    let protocol_manager = state.protocol_manager.lock().unwrap();
+    if let Some(manager) = protocol_manager.as_ref() {
+        manager.get_available_ports().await
+    } else {
+        Err("Protocol manager not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+async fn add_protocol(
+    name: String,
+    config: ProtocolConfig,
+    state: tauri::State<'_, AppState>
+) -> Result<(), String> {
+    // Ensure protocol manager is initialized
+    initialize_protocols(state.clone()).await?;
+    
+    let protocol_manager = state.protocol_manager.lock().unwrap();
+    if let Some(manager) = protocol_manager.as_ref() {
+        manager.add_protocol(name, config).await
+    } else {
+        Err("Protocol manager not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+async fn remove_protocol(
+    name: String,
+    state: tauri::State<'_, AppState>
+) -> Result<(), String> {
+    let protocol_manager = state.protocol_manager.lock().unwrap();
+    if let Some(manager) = protocol_manager.as_ref() {
+        manager.remove_protocol(&name).await
+    } else {
+        Err("Protocol manager not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+async fn discover_protocol_devices(
+    protocol: String,
+    state: tauri::State<'_, AppState>
+) -> Result<Vec<String>, String> {
+    let protocol_manager = state.protocol_manager.lock().unwrap();
+    if let Some(manager) = protocol_manager.as_ref() {
+        manager.discover_devices(&protocol).await
+    } else {
+        Err("Protocol manager not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+async fn read_protocol_point(
+    protocol: String,
+    device_id: String,
+    point: String,
+    state: tauri::State<'_, AppState>
+) -> Result<PointValue, String> {
+    let protocol_manager = state.protocol_manager.lock().unwrap();
+    if let Some(manager) = protocol_manager.as_ref() {
+        manager.read_point(&protocol, &device_id, &point).await
+    } else {
+        Err("Protocol manager not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+async fn write_protocol_point(
+    protocol: String,
+    device_id: String,
+    point: String,
+    value: PointValue,
+    state: tauri::State<'_, AppState>
+) -> Result<(), String> {
+    let protocol_manager = state.protocol_manager.lock().unwrap();
+    if let Some(manager) = protocol_manager.as_ref() {
+        manager.write_point(&protocol, &device_id, &point, value).await
+    } else {
+        Err("Protocol manager not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+async fn get_protocol_status(
+    protocol: String,
+    state: tauri::State<'_, AppState>
+) -> Result<HashMap<String, String>, String> {
+    let protocol_manager = state.protocol_manager.lock().unwrap();
+    if let Some(manager) = protocol_manager.as_ref() {
+        manager.get_protocol_status(&protocol).await
+    } else {
+        Err("Protocol manager not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+async fn get_all_protocols(state: tauri::State<'_, AppState>) -> Result<Vec<String>, String> {
+    let protocol_manager = state.protocol_manager.lock().unwrap();
+    if let Some(_manager) = protocol_manager.as_ref() {
+        // TODO: Add method to ProtocolManager to list all configured protocols
+        Ok(vec![])  // Placeholder
+    } else {
+        Err("Protocol manager not initialized".to_string())
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let app_state = AppState::new().await;
@@ -2191,7 +2325,17 @@ async fn main() {
             analyze_refrigerant_system,
             get_refrigerant_pt_data,
             search_refrigerants_by_gwp,
-            get_p499_transducers
+            get_p499_transducers,
+            // Protocol commands
+            initialize_protocols,
+            get_available_serial_ports,
+            add_protocol,
+            remove_protocol,
+            discover_protocol_devices,
+            read_protocol_point,
+            write_protocol_point,
+            get_protocol_status,
+            get_all_protocols
         ])
         .setup(|app| {
             println!("Building Automation Control Center with BMS Integration starting up!");

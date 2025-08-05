@@ -1,0 +1,122 @@
+# Protocol Configuration for RPi5 SSD Edition
+# Default settings for BACnet and Modbus protocols
+
+[bacnet_ip]
+# BACnet IP default settings
+default_port = 47808
+broadcast_port = 47809
+timeout_ms = 5000
+retry_count = 3
+max_apdu_size = 1476
+segmentation_supported = true
+
+[bacnet_mstp]
+# BACnet MS/TP default settings via RS485 USB adapter
+default_baud_rates = [9600, 19200, 38400, 76800]
+default_baud_rate = 38400
+data_bits = 8
+stop_bits = 1
+parity = "none"
+max_master = 127
+max_info_frames = 1
+timeout_ms = 100
+retry_count = 3
+
+[modbus_tcp]
+# Modbus TCP default settings
+default_port = 502
+timeout_ms = 3000
+retry_count = 3
+max_connections = 10
+
+[modbus_rtu]
+# Modbus RTU default settings via RS485 USB adapter
+default_baud_rates = [9600, 19200, 38400, 57600, 115200]
+default_baud_rate = 9600
+data_bits = 8
+stop_bits = 1
+parity = "even"  # Common for Modbus RTU
+timeout_ms = 1000
+retry_count = 3
+inter_frame_delay_ms = 4  # 3.5 character times at 9600 baud
+
+[rs485]
+# RS485 USB adapter settings
+supported_adapters = [
+    "FTDI FT232R USB UART",
+    "CH340 USB to Serial",
+    "CP210x USB to UART Bridge",
+    "Prolific PL2303",
+    "WCH CH341SER"
+]
+flow_control = "none"
+rts_control = "auto"  # Automatic direction control
+buffer_size = 4096
+
+# Common device profiles
+[[device_profiles]]
+name = "Johnson Controls NAE"
+protocol = "bacnet_ip"
+port = 47808
+
+[[device_profiles]]
+name = "Schneider Electric SmartX"
+protocol = "bacnet_ip"
+port = 47808
+
+[[device_profiles]]
+name = "Automated Logic WebCTRL"
+protocol = "bacnet_ip"
+port = 47808
+
+[[device_profiles]]
+name = "Delta Controls enteliBUS"
+protocol = "bacnet_mstp"
+baud_rate = 76800
+
+[[device_profiles]]
+name = "Carrier CCN"
+protocol = "bacnet_mstp"
+baud_rate = 38400
+
+[[device_profiles]]
+name = "Modbus Power Meter"
+protocol = "modbus_rtu"
+baud_rate = 9600
+parity = "even"
+
+[[device_profiles]]
+name = "Modbus VFD"
+protocol = "modbus_rtu"
+baud_rate = 19200
+parity = "none"
+
+[[device_profiles]]
+name = "Modbus Temperature Controller"
+protocol = "modbus_tcp"
+port = 502
+
+# Point mapping templates
+[[point_templates]]
+name = "Standard AI"
+protocols = ["bacnet_ip", "bacnet_mstp"]
+object_type = "AI"
+properties = ["present_value", "units", "description", "min_pres_value", "max_pres_value"]
+
+[[point_templates]]
+name = "Standard AO"
+protocols = ["bacnet_ip", "bacnet_mstp"]
+object_type = "AO"
+properties = ["present_value", "units", "description", "min_pres_value", "max_pres_value", "relinquish_default"]
+
+[[point_templates]]
+name = "Modbus Holding Register"
+protocols = ["modbus_tcp", "modbus_rtu"]
+register_type = "HR"
+data_types = ["uint16", "int16", "uint32", "int32", "float32"]
+
+[[point_templates]]
+name = "Modbus Input Register"
+protocols = ["modbus_tcp", "modbus_rtu"]
+register_type = "IR"
+data_types = ["uint16", "int16", "uint32", "int32", "float32"]

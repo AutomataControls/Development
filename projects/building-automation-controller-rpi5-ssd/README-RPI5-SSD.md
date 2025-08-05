@@ -127,6 +127,26 @@ sudo python3 installer/install-automata-nexus-rpi5.py
 - Async I/O operations
 - Worker pool for logic execution
 
+### 5. BACnet/Modbus Protocol Integration
+- **Network Protocols**:
+  - BACnet/IP (UDP port 47808)
+  - Modbus TCP (TCP port 502)
+- **RS485 Protocols via USB Adapters**:
+  - BACnet MS/TP (9600-76800 baud)
+  - Modbus RTU (9600-115200 baud)
+- **Features**:
+  - Auto-discovery of USB serial adapters
+  - Device enumeration and mapping
+  - Real-time point read/write
+  - Multi-protocol gateway functionality
+  - Exception handling with retries
+- **Supported USB Adapters**:
+  - FTDI FT232R USB UART
+  - CH340/CH341 USB to Serial
+  - CP210x USB to UART Bridge
+  - Prolific PL2303
+  - Auto direction control for RS485
+
 ## Directory Structure
 ```
 /mnt/ssd/
