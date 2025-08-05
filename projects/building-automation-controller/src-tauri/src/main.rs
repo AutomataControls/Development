@@ -2,6 +2,7 @@
 
 mod logic_engine;
 mod metrics_db;
+mod vibration_sensor;
 
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
@@ -10,6 +11,7 @@ use std::process::Command;
 use chrono::{DateTime, Utc};
 use logic_engine::{LogicEngine, LogicFile, LogicInputs, LogicOutputs, LogicExecution};
 use metrics_db::{MetricsDatabase, MetricQuery, TrendData};
+use vibration_sensor::{VibrationManager, VibrationReading, VibrationSensorConfig};
 
 struct AppState {
     boards: Mutex<HashMap<String, BoardInfo>>,
@@ -20,6 +22,7 @@ struct AppState {
     bms_connection_status: Mutex<BmsConnectionStatus>,
     maintenance_mode: Mutex<MaintenanceMode>,
     metrics_db: Mutex<Option<MetricsDatabase>>,
+    vibration_manager: Mutex<VibrationManager>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -233,6 +236,7 @@ impl AppState {
             bms_connection_status: Mutex::new(BmsConnectionStatus::default()),
             maintenance_mode: Mutex::new(MaintenanceMode::default()),
             metrics_db: Mutex::new(metrics_db),
+            vibration_manager: Mutex::new(VibrationManager::new()),
         }
     }
 }
@@ -268,27 +272,29 @@ async fn scan_boards(state: tauri::State<'_, AppState>) -> Result<Vec<BoardInfo>
         }
     }
 
-    // Check for 8-relay board (only stack 1 as specified)
-    if let Ok(_) = check_8relay_board(1).await {
-        let board = BoardInfo {
-            board_type: "SM8relind 8-Relay".to_string(),
-            stack_level: 1,
-            firmware_version: "1.0".to_string(),
-            status: "Connected".to_string(),
-            capabilities: BoardCapabilities {
-                analog_inputs: 0,
-                analog_outputs: 0,
-                digital_inputs: 0,
-                digital_outputs: 0,
-                relays: 8,
-                triacs: 0,
-                has_rtc: false,
-                has_watchdog: false,
-                has_1wire: false,
-            },
-        };
-        board_map.insert("8relay_1".to_string(), board.clone());
-        boards.push(board);
+    // Scan for 8-relay boards (stack 0-7)
+    for stack in 0..8 {
+        if let Ok(_) = check_8relay_board(stack).await {
+            let board = BoardInfo {
+                board_type: "SM8relind 8-Relay".to_string(),
+                stack_level: stack,
+                firmware_version: "1.0".to_string(),
+                status: "Connected".to_string(),
+                capabilities: BoardCapabilities {
+                    analog_inputs: 0,
+                    analog_outputs: 0,
+                    digital_inputs: 0,
+                    digital_outputs: 0,
+                    relays: 8,
+                    triacs: 0,
+                    has_rtc: false,
+                    has_watchdog: false,
+                    has_1wire: false,
+                },
+            };
+            board_map.insert(format!("8relay_{}", stack), board.clone());
+            boards.push(board);
+        }
     }
 
     // Scan for 16-relay boards (stack 0-7)
@@ -1862,6 +1868,57 @@ async fn get_channel_list(
     }
 }
 
+// Vibration sensor commands
+#[tauri::command]
+async fn scan_vibration_ports(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<String>, String> {
+    let vibration_manager = state.vibration_manager.lock().unwrap();
+    Ok(vibration_manager.scan_ports())
+}
+
+#[tauri::command]
+async fn configure_vibration_sensor(
+    config: VibrationSensorConfig,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let vibration_manager = state.vibration_manager.lock().unwrap();
+    vibration_manager.configure_sensor(config)
+}
+
+#[tauri::command]
+async fn get_vibration_configs(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<VibrationSensorConfig>, String> {
+    let vibration_manager = state.vibration_manager.lock().unwrap();
+    Ok(vibration_manager.get_configs())
+}
+
+#[tauri::command]
+async fn read_vibration_sensor(
+    sensor_id: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<VibrationReading, String> {
+    let vibration_manager = state.vibration_manager.lock().unwrap();
+    vibration_manager.read_sensor(&sensor_id)
+}
+
+#[tauri::command]
+async fn get_all_vibration_readings(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<VibrationReading>, String> {
+    let vibration_manager = state.vibration_manager.lock().unwrap();
+    Ok(vibration_manager.get_all_readings())
+}
+
+#[tauri::command]
+async fn check_vibration_alerts(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<(String, String, f32)>, String> {
+    let vibration_manager = state.vibration_manager.lock().unwrap();
+    Ok(vibration_manager.check_alerts())
+}
+
 // Helper function to calculate scaled value
 fn calculate_scaled_value(channel_config: &ChannelConfig, raw_value: f64) -> f64 {
     match channel_config.input_type.as_deref() {
@@ -1955,7 +2012,14 @@ async fn main() {
             store_board_metrics,
             get_trend_data,
             query_metrics,
-            get_channel_list
+            get_channel_list,
+            // Vibration sensors
+            scan_vibration_ports,
+            configure_vibration_sensor,
+            get_vibration_configs,
+            read_vibration_sensor,
+            get_all_vibration_readings,
+            check_vibration_alerts
         ])
         .setup(|app| {
             println!("Building Automation Control Center with BMS Integration starting up!");

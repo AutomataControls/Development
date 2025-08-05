@@ -21,6 +21,12 @@ A comprehensive Tauri-based control system for Sequent Microsystems building aut
   - 16-channel analog output boards
   - 8-channel relay boards
 
+- **Vibration Monitoring (Optional)**
+  - WIT-Motion WTVB01-485 sensors via RS485/Modbus RTU
+  - ISO 10816-3 compliant vibration analysis
+  - Real-time equipment health monitoring
+  - Automatic alert thresholds
+
 - **Data Integration**
   - BMS metric sender with InfluxDB line protocol
   - Processing validation proxy for enhanced data validation

@@ -193,12 +193,22 @@ async fn execute_logic(script: String) -> Result<LogicResult, String>
   - SM16univin: Stack 0-7 (ID: 16univin_0 to 16univin_7)
   - SM16uout: Stack 0-7 (ID: 16uout_0 to 16uout_7)
   - SM16relind: Stack 0-7 (ID: 16relay_0 to 16relay_7)
-  - SM8relind: Stack 1 only (ID: 8relay_1)
+  - SM8relind: Stack 0-7 (ID: 8relay_0 to 8relay_7)
 - Maximum I/O points:
   - 64 universal inputs from MegaBAS + 128 from 16univin = 192 total
   - 32 analog outputs from MegaBAS + 128 from 16uout = 160 total
-  - 8 relays from 8relind + 128 from 16relind = 136 total relay outputs
+  - 64 relays from 8relind + 128 from 16relind = 192 total relay outputs
   - 32 triac outputs from MegaBAS boards
+
+### RS485 Vibration Monitoring (Optional)
+- WIT-Motion WTVB01-485 sensors via Modbus RTU
+- High-speed vibration monitoring (up to 1000Hz)
+- ISO 10816-3 compliance for equipment health monitoring
+- Features:
+  - RMS velocity measurement (mm/s)
+  - Temperature monitoring
+  - Automatic alert thresholds
+  - Equipment classification (A/B/C/D zones)
 
 ### Performance Optimization
 - Rust backend for speed
