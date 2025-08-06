@@ -1,0 +1,18 @@
+[Unit]
+Description=Automata Nexus Frontend Web Server
+After=network.target automata-nexus-backend.service
+Requires=automata-nexus-backend.service
+
+[Service]
+Type=simple
+User=Automata
+Group=Automata
+WorkingDirectory=/opt/automata-nexus/app
+ExecStart=/usr/bin/npm run start -- -p 1420 -H 0.0.0.0
+Restart=always
+RestartSec=10
+Environment="NODE_ENV=production"
+Environment="NEXT_PUBLIC_API_URL=http://localhost:3001"
+
+[Install]
+WantedBy=multi-user.target

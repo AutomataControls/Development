@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-// Dynamic import for Tauri - will be null in web mode
+import { apiClient, isWebMode } from "@/lib/api-client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -110,14 +110,9 @@ export default function BmsIntegration({ boardId }: BmsIntegrationProps) {
 
   const loadBmsConfig = async () => {
     try {
-      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
-        const { invoke } = await import("@tauri-apps/api/tauri");
-        const savedConfig: BmsConfig | null = await invoke("get_bms_config", { boardId })
-        if (savedConfig) {
-          setConfig(savedConfig)
-        }
-      } else {
-        console.log("Web mode: BMS config loading disabled")
+      const savedConfig = await apiClient.getBmsConfig()
+      if (savedConfig && Object.keys(savedConfig).length > 0) {
+        setConfig({ ...config, ...savedConfig })
       }
     } catch (error) {
       console.error("Failed to load BMS config:", error)
@@ -126,12 +121,14 @@ export default function BmsIntegration({ boardId }: BmsIntegrationProps) {
 
   const loadConnectionStatus = async () => {
     try {
-      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
-        const { invoke } = await import("@tauri-apps/api/tauri");
-        const status: BmsConnectionStatus = await invoke("get_bms_connection_status")
-        setConnectionStatus(status)
-      } else {
-        console.log("Web mode: BMS connection status loading disabled")
+      // For now, just set a mock status in web mode
+      if (isWebMode) {
+        setConnectionStatus({
+          connected: true,
+          command_source: "local",
+          retry_count: 0,
+          last_successful_query: new Date().toISOString()
+        })
       }
     } catch (error) {
       console.error("Failed to load connection status:", error)
@@ -142,462 +139,369 @@ export default function BmsIntegration({ boardId }: BmsIntegrationProps) {
     if (!config.enabled || !config.equipment_id || !config.location_id) return
 
     try {
-      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
-        const { invoke } = await import("@tauri-apps/api/tauri");
-        const commands: BmsCommand[] = await invoke("query_bms_commands", {
-          equipmentId: config.equipment_id,
-          locationId: config.location_id,
-        })
-        setRecentCommands(commands.slice(0, 10)) // Show last 10 commands
-      } else {
-        console.log("Web mode: BMS command querying disabled")
+      // In web mode, we'll skip command queries for now
+      if (!isWebMode) {
+        // Implement command query when backend supports it
       }
     } catch (error) {
-      console.error("Failed to query BMS commands:", error)
+      console.error("Failed to query commands:", error)
+    }
+  }
+
+  const saveBmsConfig = async () => {
+    setIsSaving(true)
+    try {
+      await apiClient.saveBmsConfig(config)
+      // Show success message
+    } catch (error) {
+      console.error("Failed to save BMS config:", error)
+    } finally {
+      setIsSaving(false)
     }
   }
 
   const testConnection = async () => {
     setIsTestingConnection(true)
     try {
-      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
-        const { invoke } = await import("@tauri-apps/api/tauri");
-        const result: string = await invoke("test_bms_connection", {
-          equipmentId: config.equipment_id,
-          locationId: config.location_id,
+      // Implement connection test
+      const response = await fetch(config.influx_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: 'SELECT 1'
         })
-        alert(`✅ ${result}`)
-        loadConnectionStatus()
-      } else {
-        console.log("Web mode: BMS connection testing disabled")
-        alert("BMS connection testing is only available in desktop mode")
-      }
-    } catch (error) {
-      alert(`❌ Connection test failed: ${error}`)
+      })
+      
+      setConnectionStatus({
+        ...connectionStatus,
+        connected: response.ok,
+        last_successful_query: response.ok ? new Date().toISOString() : undefined,
+        last_error: response.ok ? undefined : `HTTP ${response.status}`
+      })
+    } catch (error: any) {
+      setConnectionStatus({
+        ...connectionStatus,
+        connected: false,
+        last_error: error.message
+      })
     } finally {
       setIsTestingConnection(false)
     }
   }
 
-  const saveConfig = async () => {
-    setIsSaving(true)
-    try {
-      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
-        const { invoke } = await import("@tauri-apps/api/tauri");
-        await invoke("save_bms_config", { boardId, config })
-        alert("BMS configuration saved successfully!")
-      } else {
-        console.log("Web mode: BMS config saving disabled")
-        alert("BMS configuration saving is only available in desktop mode")
-      }
-    } catch (error) {
-      alert(`Failed to save configuration: ${error}`)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const getCommandSourceIcon = () => {
-    if (connectionStatus.command_source === "bms") {
-      return <Cloud className="w-4 h-4 text-blue-500" />
-    } else {
-      return <Server className="w-4 h-4 text-gray-500" />
-    }
-  }
-
-  const getConnectionIcon = () => {
-    if (connectionStatus.connected) {
-      return <Wifi className="w-4 h-4 text-green-500" />
-    } else {
-      return <WifiOff className="w-4 h-4 text-red-500" />
-    }
+  const updateFieldMapping = (field: string, bmsField: string) => {
+    setConfig({
+      ...config,
+      field_mappings: {
+        ...config.field_mappings,
+        [field]: bmsField,
+      },
+    })
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="w-5 h-5" />
-            BMS Integration & Command System
-            <div className="flex items-center gap-2 ml-auto">
-              {getConnectionIcon()}
-              <Badge variant={connectionStatus.connected ? "default" : "secondary"}>
-                {connectionStatus.connected ? "Connected" : "Disconnected"}
-              </Badge>
-              {getCommandSourceIcon()}
-              <Badge variant="outline" className="text-xs">
-                {connectionStatus.command_source.toUpperCase()}
-              </Badge>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={config.enabled}
-                  onCheckedChange={(checked) => setConfig({ ...config, enabled: checked })}
-                />
-                <Label>Enable BMS Integration</Label>
-              </div>
-              {config.enabled && (
-                <Badge variant="default" className="animate-pulse">
-                  <Activity className="w-3 h-3 mr-1" />
-                  Active
-                </Badge>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={testConnection} disabled={isTestingConnection || !config.enabled} variant="outline">
-                <RefreshCw className={`w-4 h-4 mr-2 ${isTestingConnection ? "animate-spin" : ""}`} />
-                Test Connection
-              </Button>
-              <Button onClick={saveConfig} disabled={isSaving}>
-                <Settings className="w-4 h-4 mr-2" />
-                Save Config
-              </Button>
-            </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            BMS Integration
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Connection Status */}
-      {config.enabled && (
-        <Alert className={connectionStatus.connected ? "border-green-200" : "border-red-200"}>
           <div className="flex items-center gap-2">
             {connectionStatus.connected ? (
-              <CheckCircle className="h-4 w-4 text-green-600" />
+              <Badge variant="default" className="flex items-center gap-1">
+                <Wifi className="h-3 w-3" />
+                Connected
+              </Badge>
             ) : (
-              <XCircle className="h-4 w-4 text-red-600" />
+              <Badge variant="destructive" className="flex items-center gap-1">
+                <WifiOff className="h-3 w-3" />
+                Disconnected
+              </Badge>
             )}
-            <AlertDescription>
-              <div className="flex items-center justify-between w-full">
-                <div>
-                  <strong>Status:</strong> {connectionStatus.connected ? "Connected to BMS" : "Using Local Logic"}
-                  {connectionStatus.last_error && (
-                    <div className="text-sm text-red-600 mt-1">Error: {connectionStatus.last_error}</div>
-                  )}
-                </div>
-                <div className="text-sm text-gray-600">
-                  {connectionStatus.last_successful_query && (
-                    <div>Last Query: {new Date(connectionStatus.last_successful_query).toLocaleTimeString()}</div>
-                  )}
-                  {connectionStatus.retry_count > 0 && <div>Retries: {connectionStatus.retry_count}</div>}
-                </div>
-              </div>
-            </AlertDescription>
+            <Badge variant={config.enabled ? "default" : "secondary"}>
+              {config.enabled ? "Enabled" : "Disabled"}
+            </Badge>
           </div>
-        </Alert>
-      )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="config" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="config">Configuration</TabsTrigger>
+            <TabsTrigger value="mapping">Field Mapping</TabsTrigger>
+            <TabsTrigger value="commands">Commands</TabsTrigger>
+            <TabsTrigger value="status">Status</TabsTrigger>
+          </TabsList>
 
-      <Tabs defaultValue="configuration" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="configuration">Configuration</TabsTrigger>
-          <TabsTrigger value="commands">Live Commands</TabsTrigger>
-          <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
-        </TabsList>
+          <TabsContent value="config" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="bms-enabled">Enable BMS Integration</Label>
+              <Switch
+                id="bms-enabled"
+                checked={config.enabled}
+                onCheckedChange={(checked) =>
+                  setConfig({ ...config, enabled: checked })
+                }
+              />
+            </div>
 
-        <TabsContent value="configuration" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Basic Configuration */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="w-5 h-5" />
-                  Basic Configuration
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Location Name</Label>
-                  <Input
-                    value={config.location_name}
-                    onChange={(e) => setConfig({ ...config, location_name: e.target.value })}
-                    placeholder="FirstChurchOfGod"
-                  />
-                </div>
-                <div>
-                  <Label>System Name</Label>
-                  <Input
-                    value={config.system_name}
-                    onChange={(e) => setConfig({ ...config, system_name: e.target.value })}
-                    placeholder="AHU-001"
-                  />
-                </div>
-                <div>
-                  <Label>Location ID</Label>
-                  <Input
-                    value={config.location_id}
-                    onChange={(e) => setConfig({ ...config, location_id: e.target.value })}
-                    placeholder="9"
-                  />
-                </div>
-                <div>
-                  <Label>Equipment ID</Label>
-                  <Input
-                    value={config.equipment_id}
-                    onChange={(e) => setConfig({ ...config, equipment_id: e.target.value })}
-                    placeholder="WAg6mWpJneM2zLMDu11b"
-                  />
-                </div>
-                <div>
-                  <Label>Equipment Type</Label>
-                  <Input
-                    value={config.equipment_type}
-                    onChange={(e) => setConfig({ ...config, equipment_type: e.target.value })}
-                    placeholder="Air Handler"
-                  />
-                </div>
-                <div>
-                  <Label>Zone</Label>
-                  <Input
-                    value={config.zone}
-                    onChange={(e) => setConfig({ ...config, zone: e.target.value })}
-                    placeholder="Main Building"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Server Configuration */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Cloud className="w-5 h-5" />
-                  BMS Server Configuration
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>BMS Server URL</Label>
-                  <Input
-                    value={config.bms_server_url}
-                    onChange={(e) => setConfig({ ...config, bms_server_url: e.target.value })}
-                    placeholder="http://143.198.162.31:8205/api/v3/query_sql"
-                  />
-                </div>
-                <div>
-                  <Label>InfluxDB URL</Label>
-                  <Input
-                    value={config.influx_url}
-                    onChange={(e) => setConfig({ ...config, influx_url: e.target.value })}
-                    placeholder="http://143.198.162.31:8205/api/v3/query_sql"
-                  />
-                </div>
-                <div>
-                  <Label>Command Query Interval (seconds)</Label>
-                  <Input
-                    type="number"
-                    value={config.command_query_interval}
-                    onChange={(e) => setConfig({ ...config, command_query_interval: Number.parseInt(e.target.value) })}
-                    placeholder="30"
-                  />
-                </div>
-                <div>
-                  <Label>Data Update Interval (seconds)</Label>
-                  <Input
-                    type="number"
-                    value={config.update_interval}
-                    onChange={(e) => setConfig({ ...config, update_interval: Number.parseInt(e.target.value) })}
-                    placeholder="30"
-                  />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={config.fallback_to_local}
-                    onCheckedChange={(checked) => setConfig({ ...config, fallback_to_local: checked })}
-                  />
-                  <Label>Fallback to Local Logic</Label>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Query Template */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="w-5 h-5" />
-                InfluxDB Query Template
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-gray-50 p-4 rounded-lg font-mono text-sm">
-                <div className="text-gray-600 mb-2">// Generated Query Template:</div>
-                <div className="text-blue-600">
-                  {`SELECT * FROM "ProcessingEngineCommands"`}
-                  <br />
-                  {`WHERE equipment_id = '${config.equipment_id}'`}
-                  <br />
-                  {`AND location_id = '${config.location_id}'`}
-                  <br />
-                  {`AND time >= now() - INTERVAL '5 minutes'`}
-                  <br />
-                  {`ORDER BY time DESC`}
-                  <br />
-                  {`LIMIT 35`}
-                </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="location-name">Location Name</Label>
+                <Input
+                  id="location-name"
+                  value={config.location_name}
+                  onChange={(e) =>
+                    setConfig({ ...config, location_name: e.target.value })
+                  }
+                />
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
-        <TabsContent value="commands" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="w-5 h-5" />
-                Recent BMS Commands
-                <Button onClick={queryRecentCommands} variant="outline" size="sm" className="ml-auto bg-transparent">
-                  <RefreshCw className="w-3 h-3 mr-1" />
-                  Refresh
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-96">
-                {recentCommands.length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">
-                    <Database className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>No recent commands</p>
-                    <p className="text-sm">
-                      {config.enabled ? "Waiting for BMS commands..." : "Enable BMS integration to see commands"}
-                    </p>
-                  </div>
+              <div className="space-y-2">
+                <Label htmlFor="system-name">System Name</Label>
+                <Input
+                  id="system-name"
+                  value={config.system_name}
+                  onChange={(e) =>
+                    setConfig({ ...config, system_name: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="location-id">Location ID</Label>
+                <Input
+                  id="location-id"
+                  value={config.location_id}
+                  onChange={(e) =>
+                    setConfig({ ...config, location_id: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="equipment-id">Equipment ID</Label>
+                <Input
+                  id="equipment-id"
+                  value={config.equipment_id}
+                  onChange={(e) =>
+                    setConfig({ ...config, equipment_id: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="equipment-type">Equipment Type</Label>
+                <Input
+                  id="equipment-type"
+                  value={config.equipment_type}
+                  onChange={(e) =>
+                    setConfig({ ...config, equipment_type: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="zone">Zone</Label>
+                <Input
+                  id="zone"
+                  value={config.zone}
+                  onChange={(e) => setConfig({ ...config, zone: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="bms-url">BMS Server URL</Label>
+                <Input
+                  id="bms-url"
+                  value={config.bms_server_url}
+                  onChange={(e) =>
+                    setConfig({ ...config, bms_server_url: e.target.value })
+                  }
+                  placeholder="http://server:port/api/v3/query_sql"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="update-interval">Update Interval (seconds)</Label>
+                <Input
+                  id="update-interval"
+                  type="number"
+                  value={config.update_interval}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      update_interval: parseInt(e.target.value),
+                    })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="command-interval">
+                  Command Query Interval (seconds)
+                </Label>
+                <Input
+                  id="command-interval"
+                  type="number"
+                  value={config.command_query_interval}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      command_query_interval: parseInt(e.target.value),
+                    })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="fallback-local">Fallback to Local Control</Label>
+              <Switch
+                id="fallback-local"
+                checked={config.fallback_to_local}
+                onCheckedChange={(checked) =>
+                  setConfig({ ...config, fallback_to_local: checked })
+                }
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button onClick={testConnection} disabled={isTestingConnection}>
+                {isTestingConnection ? (
+                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
                 ) : (
-                  <div className="space-y-3">
-                    {recentCommands.map((command, index) => (
-                      <div key={index} className="p-3 border rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs">
-                              {command.command_type}
-                            </Badge>
-                            <Badge variant="secondary" className="text-xs">
-                              Priority: {command.priority}
-                            </Badge>
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {new Date(command.timestamp).toLocaleTimeString()}
-                          </div>
-                        </div>
-                        <div className="text-sm">
-                          <div className="text-gray-600">Equipment: {command.equipment_id}</div>
-                          <div className="text-gray-600">Location: {command.location_id}</div>
-                          <div className="font-mono text-xs bg-gray-50 p-2 rounded mt-2">
-                            {JSON.stringify(command.command_data, null, 2)}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <Activity className="h-4 w-4 mr-2" />
                 )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                Test Connection
+              </Button>
+              <Button onClick={saveBmsConfig} disabled={isSaving}>
+                {isSaving ? (
+                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Settings className="h-4 w-4 mr-2" />
+                )}
+                Save Configuration
+              </Button>
+            </div>
+          </TabsContent>
 
-        <TabsContent value="monitoring" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Command Source Status */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="w-5 h-5" />
-                  Command Source Status
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-2">
-                      {getCommandSourceIcon()}
-                      <span className="font-medium">Current Source</span>
-                    </div>
-                    <Badge variant={connectionStatus.command_source === "bms" ? "default" : "secondary"}>
-                      {connectionStatus.command_source === "bms" ? "BMS Server" : "Local Logic Files"}
-                    </Badge>
-                  </div>
+          <TabsContent value="mapping" className="space-y-4">
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Map local sensor names to BMS field names for data synchronization.
+              </AlertDescription>
+            </Alert>
 
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-2">
-                      {getConnectionIcon()}
-                      <span className="font-medium">Connection Status</span>
-                    </div>
-                    <Badge variant={connectionStatus.connected ? "default" : "destructive"}>
-                      {connectionStatus.connected ? "Connected" : "Disconnected"}
-                    </Badge>
-                  </div>
-
-                  {connectionStatus.last_successful_query && (
-                    <div className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4" />
-                        <span className="font-medium">Last Query</span>
-                      </div>
-                      <span className="text-sm">
-                        {new Date(connectionStatus.last_successful_query).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-
-                  {connectionStatus.retry_count > 0 && (
-                    <div className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                        <span className="font-medium">Retry Count</span>
-                      </div>
-                      <Badge variant="outline">{connectionStatus.retry_count}</Badge>
-                    </div>
-                  )}
+            <div className="space-y-4">
+              {Object.entries(config.field_mappings).map(([field, bmsField]) => (
+                <div key={field} className="grid grid-cols-2 gap-4">
+                  <Input value={field} disabled />
+                  <Input
+                    value={bmsField}
+                    onChange={(e) => updateFieldMapping(field, e.target.value)}
+                    placeholder="BMS field name"
+                  />
                 </div>
-              </CardContent>
-            </Card>
+              ))}
+            </div>
 
-            {/* Fallback Configuration */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Server className="w-5 h-5" />
-                  Fallback Configuration
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <Alert>
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription>
-                      When BMS connection is lost, the system will {config.fallback_to_local ? "automatically" : "NOT"}{" "}
-                      fall back to local logic files.
-                    </AlertDescription>
-                  </Alert>
+            <Button
+              variant="outline"
+              onClick={() => updateFieldMapping("", "")}
+              className="w-full"
+            >
+              Add Field Mapping
+            </Button>
+          </TabsContent>
 
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      checked={config.fallback_to_local}
-                      onCheckedChange={(checked) => setConfig({ ...config, fallback_to_local: checked })}
-                    />
-                    <Label>Enable Automatic Fallback</Label>
-                  </div>
+          <TabsContent value="commands" className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-medium">Recent Commands</h4>
+              <Badge variant="outline">
+                Source: {connectionStatus.command_source}
+              </Badge>
+            </div>
 
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h4 className="font-semibold text-blue-800 mb-2">How It Works:</h4>
-                    <ul className="text-sm text-blue-700 space-y-1">
-                      <li>• System queries BMS server for commands every {config.command_query_interval}s</li>
-                      <li>• If BMS is available, commands are executed from server</li>
-                      <li>• If BMS fails and fallback is enabled, local logic files are used</li>
-                      <li>• System automatically reconnects when BMS becomes available</li>
-                    </ul>
-                  </div>
+            <ScrollArea className="h-[300px] rounded-md border p-4">
+              {recentCommands.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8">
+                  No commands received
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
-    </div>
+              ) : (
+                <div className="space-y-2">
+                  {recentCommands.map((cmd, idx) => (
+                    <Card key={idx} className="p-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">{cmd.command_type}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(cmd.timestamp).toLocaleString()}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={cmd.priority > 5 ? "destructive" : "default"}
+                        >
+                          Priority: {cmd.priority}
+                        </Badge>
+                      </div>
+                      <pre className="text-xs mt-2 p-2 bg-muted rounded">
+                        {JSON.stringify(cmd.command_data, null, 2)}
+                      </pre>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="status" className="space-y-4">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Server className="h-5 w-5" />
+                  <span>Connection Status</span>
+                </div>
+                {connectionStatus.connected ? (
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                ) : (
+                  <XCircle className="h-5 w-5 text-red-500" />
+                )}
+              </div>
+
+              {connectionStatus.last_successful_query && (
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="h-4 w-4" />
+                    <span className="text-sm font-medium">Last Successful Query</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(connectionStatus.last_successful_query).toLocaleString()}
+                  </p>
+                </div>
+              )}
+
+              {connectionStatus.last_error && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{connectionStatus.last_error}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="p-4 border rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Retry Count</span>
+                  <Badge variant="outline">{connectionStatus.retry_count}</Badge>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   )
 }

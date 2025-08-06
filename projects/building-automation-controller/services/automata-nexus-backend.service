@@ -1,0 +1,19 @@
+[Unit]
+Description=Automata Nexus Backend API Server
+After=network.target
+
+[Service]
+Type=simple
+User=Automata
+Group=Automata
+WorkingDirectory=/opt/automata-nexus/app
+ExecStart=/usr/bin/node backend-server.js
+Restart=always
+RestartSec=10
+Environment="NODE_ENV=production"
+Environment="PORT=3001"
+SupplementaryGroups=i2c dialout gpio
+PrivateDevices=no
+
+[Install]
+WantedBy=multi-user.target

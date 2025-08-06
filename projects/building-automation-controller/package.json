@@ -8,7 +8,9 @@
     "start": "next start",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "backend": "node backend-server.js",
+    "dev:web": "concurrently \"npm run backend\" \"npm run dev\""
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.1.2",
@@ -57,7 +59,12 @@
     "sonner": "^1.2.0",
     "tailwind-merge": "^1.14.0",
     "vaul": "^0.9.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "sqlite3": "^5.1.6",
+    "sqlite": "^5.1.1",
+    "concurrently": "^8.2.2"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^1.5.0",
