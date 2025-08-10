@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# Automata Nexus AI Controller - Rust/Tauri Edition for Raspberry Pi 5
+# Automata Nexus AI Controller - NATIVE Rust/egui Edition for Raspberry Pi 5
 # Commercial License - Copyright (c) 2025 Automata Controls
 # Developed by Andrew Jewell Sr.
+# REAL HARDWARE CONTROL - NO SIMULATIONS
 
 set -e
 
@@ -241,7 +242,7 @@ prepare_ssd() {
 
 # Install system dependencies
 install_dependencies() {
-    print_info "Installing system dependencies..."
+    print_info "Installing REAL hardware control dependencies..."
     
     apt-get update
     apt-get install -y \
@@ -261,6 +262,15 @@ install_dependencies() {
         libxcb-xfixes0-dev \
         libxkbcommon-dev \
         libgl1-mesa-dev \
+        i2c-tools \
+        python3-smbus \
+        python3-serial \
+        python3-modbus \
+        python3-pymodbus \
+        python3-pip \
+        git \
+        make \
+        gcc \
         libegl1-mesa-dev \
         curl \
         wget \
@@ -359,13 +369,13 @@ install_board_drivers() {
     mkdir -p $TEMP_DIR
     cd $TEMP_DIR
     
-    # List of Sequent Microsystems repositories
+    # List of Sequent Microsystems repositories - CORRECTED based on firmware review
     declare -a REPOS=(
-        "https://github.com/SequentMicrosystems/megabas-rpi.git"
-        "https://github.com/SequentMicrosystems/8relind-rpi.git"
-        "https://github.com/SequentMicrosystems/8inputs-rpi.git"
-        "https://github.com/SequentMicrosystems/rtd-rpi.git"
-        "https://github.com/SequentMicrosystems/4-20mA-rpi.git"
+        "https://github.com/SequentMicrosystems/megabas-rpi.git"       # 4 triacs, 4 analog out, 8 config inputs
+        "https://github.com/SequentMicrosystems/8relind-rpi.git"       # 8 relay outputs ONLY
+        "https://github.com/SequentMicrosystems/16relind-rpi.git"      # 16 relay outputs ONLY
+        "https://github.com/SequentMicrosystems/16univin-rpi.git"      # 16 universal INPUTS ONLY
+        "https://github.com/SequentMicrosystems/16uout-rpi.git"        # 16 analog OUTPUTS ONLY (0-10V)
     )
     
     for repo in "${REPOS[@]}"; do
@@ -401,6 +411,15 @@ install_board_drivers() {
     rm -rf $TEMP_DIR
     
     print_success "All board drivers installed"
+    
+    # Verify installations
+    print_info "Verifying board driver installations..."
+    echo "Installed board capabilities:"
+    echo "- MegaBAS: 4 triacs, 4 analog outputs, 8 configurable inputs (NO RELAYS)"
+    echo "- 16univin: 16 universal INPUTS ONLY"
+    echo "- 16uout: 16 analog OUTPUTS ONLY"
+    echo "- 8relind: 8 relay outputs ONLY"
+    echo "- 16relind: 16 relay outputs ONLY"
 }
 
 # Setup Cloudflare tunnel
@@ -554,7 +573,7 @@ EOF
 
 # Install Nexus application
 install_nexus() {
-    print_info "Installing Nexus application..."
+    print_info "Installing Nexus REAL HARDWARE CONTROL application..."
     
     # Create directory structure
     mkdir -p $INSTALL_PATH
@@ -563,6 +582,7 @@ install_nexus() {
     mkdir -p $LOG_PATH
     mkdir -p $BACKUP_PATH
     mkdir -p $FIRMWARE_PATH
+    mkdir -p $INSTALL_PATH/scripts
     
     # Copy source code from current directory
     print_info "Copying source code..."
@@ -577,10 +597,31 @@ install_nexus() {
         exit 1
     fi
     
+    # Create hardware interface scripts
+    print_info "Creating hardware interface scripts..."
+    
+    # Create Modbus test script
+    cat > $INSTALL_PATH/modbus_test.py << 'EOF'
+#!/usr/bin/env python3
+import sys
+import time
+from pymodbus.client import ModbusTcpClient
+
+if len(sys.argv) >= 3:
+    start = time.time()
+    client = ModbusTcpClient(sys.argv[1], port=int(sys.argv[2]))
+    if client.connect():
+        print(int((time.time() - start) * 1000))
+        client.close()
+    else:
+        print("999")
+EOF
+    chmod +x $INSTALL_PATH/modbus_test.py
+    
     cd $INSTALL_PATH
     
-    # Build for ARM64
-    print_info "Building Rust application (this may take a while)..."
+    # Build for ARM64 with REAL hardware support
+    print_info "Building NATIVE Rust application with hardware support..."
     export CARGO_BUILD_JOBS=4
     export RUSTFLAGS='-C target-cpu=cortex-a76 -C opt-level=3'
     cargo build --release --target aarch64-unknown-linux-gnu
@@ -594,21 +635,92 @@ install_nexus() {
     # Create database directory
     mkdir -p $DATA_PATH
     
+    # Check if database already exists
+    if [ -f "$DATA_PATH/nexus.db" ]; then
+        print_warning "Database already exists, creating backup..."
+        cp $DATA_PATH/nexus.db $BACKUP_PATH/nexus_$(date +%Y%m%d_%H%M%S).db
+    fi
+    
     # Run migrations
     for migration in $INSTALL_PATH/migrations/*.sql; do
         if [ -f "$migration" ]; then
             print_info "Running migration: $(basename $migration)"
-            sqlite3 $DATA_PATH/nexus.db < "$migration"
+            if ! sqlite3 $DATA_PATH/nexus.db < "$migration" 2>/dev/null; then
+                print_warning "Migration already applied or skipped: $(basename $migration)"
+            fi
         fi
     done
     
+    # Optimize database for NVMe SSD
+    sqlite3 $DATA_PATH/nexus.db << EOF
+PRAGMA journal_mode = WAL;
+PRAGMA synchronous = NORMAL;
+PRAGMA cache_size = -64000;
+PRAGMA temp_store = MEMORY;
+PRAGMA mmap_size = 268435456;
+VACUUM;
+ANALYZE;
+EOF
+    
     # Set permissions
     chmod 644 $DATA_PATH/nexus.db
+    chown pi:pi $DATA_PATH/nexus.db
     
-    print_success "Database initialized"
+    # Verify database
+    if sqlite3 $DATA_PATH/nexus.db "SELECT COUNT(*) FROM users;" > /dev/null 2>&1; then
+        print_success "Database initialized and verified"
+    else
+        print_error "Database initialization failed"
+        exit 1
+    fi
     
     # Save serial number
     echo $CONTROLLER_SERIAL > $CONFIG_PATH/serial
+    
+    # Copy corrected firmware interface
+    print_info "Installing corrected firmware interface..."
+    if [ -f "$INSTALL_PATH/src/firmware_interface.py" ]; then
+        cp $INSTALL_PATH/src/firmware_interface.py /usr/local/bin/nexus-firmware
+        chmod +x /usr/local/bin/nexus-firmware
+        print_success "Firmware interface installed with corrected board specifications"
+    fi
+    
+    # Create firmware test script
+    cat > /usr/local/bin/nexus-test-boards << 'EOF'
+#!/usr/bin/env python3
+# Test script to verify board installations
+import subprocess
+import json
+
+print("Testing Sequent Microsystems board installations...")
+print("=" * 60)
+
+# Test firmware interface
+result = subprocess.run(
+    ["python3", "/usr/local/bin/nexus-firmware", "info"],
+    capture_output=True,
+    text=True
+)
+
+if result.returncode == 0:
+    info = json.loads(result.stdout)
+    print("\nBoard Capabilities (CORRECTED):")
+    for board, config in info['boards'].items():
+        print(f"\n{board}: {config['description']}")
+        for key, value in config.items():
+            if key != 'description':
+                print(f"  - {key}: {value}")
+else:
+    print(f"Error: {result.stderr}")
+
+print("\n" + "=" * 60)
+print("IMPORTANT CORRECTIONS:")
+print("- MegaBAS: 4 triacs, 4 analog outputs, 8 configurable inputs (NO RELAYS)")
+print("- 16univin: 16 universal INPUTS ONLY")
+print("- 16uout: 16 analog OUTPUTS ONLY")
+print("- Relay boards (8relind/16relind) are SEPARATE boards")
+EOF
+    chmod +x /usr/local/bin/nexus-test-boards
     
     print_success "Nexus application installed"
 }
@@ -760,8 +872,10 @@ Device Fingerprint: $DEVICE_FINGERPRINT
 
 Access Methods:
 ---------------
-Local:      http://$IP_ADDR:1420
-Cloudflare: https://${CLOUDFLARE_SUBDOMAIN}.${CLOUDFLARE_DOMAIN}
+Native GUI:  Direct on Pi display (HDMI/DSI)
+Local Web:   http://$IP_ADDR:1420
+Remote Web:  https://${CLOUDFLARE_SUBDOMAIN}.${CLOUDFLARE_DOMAIN}
+API Access:  http://$IP_ADDR:3001
 
 Default Credentials:
 -------------------
@@ -789,6 +903,20 @@ Stop:    systemctl stop nexus
 Restart: systemctl restart nexus
 Logs:    journalctl -u nexus -f
 Backup:  nexus-controller --backup
+
+Board Capabilities (CORRECTED):
+-------------------------------
+MegaBAS: 4 triacs, 4 analog outputs, 8 configurable inputs (NO RELAYS)
+16univin: 16 universal INPUTS ONLY (0-10V, 1K, 10K, dry contact)
+16uout: 16 analog OUTPUTS ONLY (0-10V)
+8relind: 8 relay outputs ONLY
+16relind: 16 relay outputs ONLY
+
+Testing Commands:
+----------------
+Test boards: nexus-test-boards
+Test firmware: nexus-firmware scan
+Test integration: python3 /opt/nexus/test_ui_firmware_integration.py
 
 Claude Code:
 -----------

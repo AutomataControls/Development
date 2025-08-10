@@ -1,0 +1,10 @@
+/home/Automata/Development/projects/Rust-SSD-Nexus-Controller/build/target/aarch64-unknown-linux-gnu/release/deps/memoffset-05c3ba2d7d19239f.d: /home/Automata/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.7.1/src/lib.rs /home/Automata/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.7.1/src/raw_field.rs /home/Automata/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.7.1/src/offset_of.rs /home/Automata/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.7.1/src/span_of.rs
+
+/home/Automata/Development/projects/Rust-SSD-Nexus-Controller/build/target/aarch64-unknown-linux-gnu/release/deps/libmemoffset-05c3ba2d7d19239f.rlib: /home/Automata/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.7.1/src/lib.rs /home/Automata/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.7.1/src/raw_field.rs /home/Automata/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.7.1/src/offset_of.rs /home/Automata/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.7.1/src/span_of.rs
+
+/home/Automata/Development/projects/Rust-SSD-Nexus-Controller/build/target/aarch64-unknown-linux-gnu/release/deps/libmemoffset-05c3ba2d7d19239f.rmeta: /home/Automata/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.7.1/src/lib.rs /home/Automata/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.7.1/src/raw_field.rs /home/Automata/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.7.1/src/offset_of.rs /home/Automata/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.7.1/src/span_of.rs
+
+/home/Automata/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.7.1/src/lib.rs:
+/home/Automata/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.7.1/src/raw_field.rs:
+/home/Automata/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.7.1/src/offset_of.rs:
+/home/Automata/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.7.1/src/span_of.rs:

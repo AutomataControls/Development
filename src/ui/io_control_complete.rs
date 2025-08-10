@@ -40,23 +40,28 @@ pub enum TempControlMode {
 }
 
 pub struct IOControlPanel {
-    // Channel configurations
-    universal_inputs: Vec<ChannelConfig>,
-    analog_outputs: Vec<f32>,
-    relays: Vec<bool>,
-    triacs: Vec<u8>,  // 0-100% dimming
+    // Channel configurations - CORRECTED for actual MegaBAS capabilities
+    universal_inputs: Vec<ChannelConfig>,  // 8 configurable inputs (0-10V, 1K, 10K)
+    analog_outputs: Vec<f32>,              // 4x 0-10V outputs
+    triacs: Vec<bool>,                     // 4 triacs for AC control (ON/OFF)
+    
+    // Relay boards are SEPARATE - not part of MegaBAS
+    relay_board_8: Option<Vec<bool>>,      // Optional 8-relay board
+    relay_board_16: Option<Vec<bool>>,     // Optional 16-relay board
     
     // Manual override states
     input_manual_modes: Vec<bool>,
     input_manual_values: Vec<f32>,
     output_manual_modes: Vec<bool>,
-    relay_manual_modes: Vec<bool>,
     triac_manual_modes: Vec<bool>,
+    relay_8_manual_modes: Option<Vec<bool>>,
+    relay_16_manual_modes: Option<Vec<bool>>,
     
     // Pending changes (not applied until "Apply" clicked)
     pending_analog_outputs: Vec<f32>,
-    pending_relays: Vec<bool>,
-    pending_triacs: Vec<u8>,
+    pending_triacs: Vec<bool>,
+    pending_relay_8: Option<Vec<bool>>,
+    pending_relay_16: Option<Vec<bool>>,
     has_pending_changes: bool,
     
     // Edit modes
@@ -94,7 +99,7 @@ enum PinAction {
 
 impl IOControlPanel {
     pub fn new() -> Self {
-        // Initialize with 8 universal inputs, 4 analog outputs, 8 relays, 4 triacs
+        // Initialize with CORRECT MegaBAS specs: 8 universal inputs, 4 analog outputs, 4 triacs (NO relays on MegaBAS!)
         let mut inputs = Vec::new();
         for i in 0..8 {
             inputs.push(ChannelConfig {
@@ -113,19 +118,24 @@ impl IOControlPanel {
         
         Self {
             universal_inputs: inputs,
-            analog_outputs: vec![0.0; 4],
-            relays: vec![false; 8],
-            triacs: vec![0; 4],
+            analog_outputs: vec![0.0; 4],      // 4 analog outputs
+            triacs: vec![false; 4],                // 4 triacs
+            
+            // Relay boards are optional/separate
+            relay_board_8: None,               // No 8-relay board by default
+            relay_board_16: None,              // No 16-relay board by default
             
             input_manual_modes: vec![false; 8],
             input_manual_values: vec![0.0; 8],
             output_manual_modes: vec![false; 4],
-            relay_manual_modes: vec![false; 8],
             triac_manual_modes: vec![false; 4],
+            relay_8_manual_modes: None,
+            relay_16_manual_modes: None,
             
             pending_analog_outputs: vec![0.0; 4],
-            pending_relays: vec![false; 8],
-            pending_triacs: vec![0; 4],
+            pending_triacs: vec![false; 4],
+            pending_relay_8: None,
+            pending_relay_16: None,
             has_pending_changes: false,
             
             editing_input: None,
@@ -147,6 +157,24 @@ impl IOControlPanel {
             
             current_values: vec![0.0; 8],
             last_update: std::time::Instant::now(),
+        }
+    }
+    
+    // Method to enable 8-relay board when detected
+    pub fn enable_8_relay_board(&mut self) {
+        if self.relay_board_8.is_none() {
+            self.relay_board_8 = Some(vec![false; 8]);
+            self.pending_relay_8 = Some(vec![false; 8]);
+            self.relay_8_manual_modes = Some(vec![false; 8]);
+        }
+    }
+    
+    // Method to enable 16-relay board when detected
+    pub fn enable_16_relay_board(&mut self) {
+        if self.relay_board_16.is_none() {
+            self.relay_board_16 = Some(vec![false; 16]);
+            self.pending_relay_16 = Some(vec![false; 16]);
+            self.relay_16_manual_modes = Some(vec![false; 16]);
         }
     }
     
@@ -360,9 +388,24 @@ impl IOControlPanel {
             if self.has_pending_changes {
                 ui.horizontal(|ui| {
                     if ui.button("Apply Changes").clicked() {
+                        // Send REAL values to hardware
+                        for (i, value) in self.pending_analog_outputs.iter().enumerate() {
+                            let _ = std::process::Command::new("megabas")
+                                .args(&["0", "aout", &(i + 1).to_string(), &format!("{:.2}", value)])
+                                .output();
+                        }
+                        
+                        // Send triac ON/OFF states to hardware
+                        for (i, state) in self.pending_triacs.iter().enumerate() {
+                            let value = if *state { "1" } else { "0" };
+                            let _ = std::process::Command::new("megabas")
+                                .args(&["0", "triac", &(i + 1).to_string(), value])
+                                .output();
+                        }
+                        
                         self.analog_outputs = self.pending_analog_outputs.clone();
+                        self.triacs = self.pending_triacs.clone();
                         self.has_pending_changes = false;
-                        // Send to hardware
                     }
                     if ui.button("Cancel").clicked() {
                         self.pending_analog_outputs = self.analog_outputs.clone();
@@ -374,56 +417,84 @@ impl IOControlPanel {
         
         ui.separator();
         
-        // Relays Section
-        ui.group(|ui| {
-            ui.label(RichText::new("Relay Outputs").strong());
-            
-            ui.horizontal_wrapped(|ui| {
-                for i in 0..self.relays.len() {
-                    let is_pending = self.pending_relays[i] != self.relays[i];
-                    
-                    ui.vertical(|ui| {
-                        ui.label(format!("Relay {}", i + 1));
+        // Optional Relay Boards Section - Only show if relay boards are connected
+        if let Some(ref relay_8) = self.relay_board_8 {
+            ui.group(|ui| {
+                ui.label(RichText::new("8-Relay Board Outputs").strong());
+                
+                ui.horizontal_wrapped(|ui| {
+                    for i in 0..relay_8.len() {
+                        let current = relay_8[i];
+                        let pending = self.pending_relay_8.as_ref().map(|p| p[i]).unwrap_or(current);
+                        let is_pending = pending != current;
                         
-                        let button_text = if self.pending_relays[i] { "ON" } else { "OFF" };
-                        let button_color = if self.pending_relays[i] {
-                            Color32::from_rgb(34, 197, 94)
-                        } else {
-                            Color32::from_rgb(148, 163, 184)
-                        };
-                        
-                        if ui.add(egui::Button::new(button_text)
-                            .fill(button_color)
-                            .min_size(egui::Vec2::new(60.0, 30.0)))
-                            .clicked() {
-                            self.pending_relays[i] = !self.pending_relays[i];
-                        }
-                        
-                        if is_pending {
-                            ui.colored_label(Color32::from_rgb(251, 146, 60), "Pending");
-                        }
-                        
-                        ui.checkbox(&mut self.relay_manual_modes[i], "Manual");
-                    });
-                }
-            });
-            
-            // Apply button for relays
-            let has_relay_changes = self.pending_relays != self.relays;
-            if has_relay_changes {
-                ui.horizontal(|ui| {
-                    if ui.button("Apply Relay Changes").clicked() {
-                        self.relays = self.pending_relays.clone();
-                        // Send to hardware
-                    }
-                    if ui.button("Cancel").clicked() {
-                        self.pending_relays = self.relays.clone();
+                        ui.vertical(|ui| {
+                            ui.label(format!("Relay {}", i + 1));
+                            
+                            let button_text = if pending { "ON" } else { "OFF" };
+                            let button_color = if pending {
+                                Color32::from_rgb(34, 197, 94)
+                            } else {
+                                Color32::from_rgb(148, 163, 184)
+                            };
+                            
+                            if ui.add(egui::Button::new(button_text)
+                                .fill(button_color)
+                                .min_size(egui::Vec2::new(60.0, 30.0)))
+                                .clicked() {
+                                if let Some(ref mut pending_relays) = self.pending_relay_8 {
+                                    pending_relays[i] = !pending_relays[i];
+                                }
+                            }
+                            
+                            if is_pending {
+                                ui.colored_label(Color32::from_rgb(251, 146, 60), "Pending");
+                            }
+                        });
                     }
                 });
-            }
-        });
+            });
+            ui.separator();
+        }
         
-        ui.separator();
+        if let Some(ref relay_16) = self.relay_board_16 {
+            ui.group(|ui| {
+                ui.label(RichText::new("16-Relay Board Outputs").strong());
+                
+                ui.horizontal_wrapped(|ui| {
+                    for i in 0..relay_16.len() {
+                        let current = relay_16[i];
+                        let pending = self.pending_relay_16.as_ref().map(|p| p[i]).unwrap_or(current);
+                        let is_pending = pending != current;
+                        
+                        ui.vertical(|ui| {
+                            ui.label(format!("Relay {}", i + 1));
+                            
+                            let button_text = if pending { "ON" } else { "OFF" };
+                            let button_color = if pending {
+                                Color32::from_rgb(34, 197, 94)
+                            } else {
+                                Color32::from_rgb(148, 163, 184)
+                            };
+                            
+                            if ui.add(egui::Button::new(button_text)
+                                .fill(button_color)
+                                .min_size(egui::Vec2::new(60.0, 30.0)))
+                                .clicked() {
+                                if let Some(ref mut pending_relays) = self.pending_relay_16 {
+                                    pending_relays[i] = !pending_relays[i];
+                                }
+                            }
+                            
+                            if is_pending {
+                                ui.colored_label(Color32::from_rgb(251, 146, 60), "Pending");
+                            }
+                        });
+                    }
+                });
+            });
+            ui.separator();
+        }
         
         // Triacs (Dimmers) Section
         ui.group(|ui| {
@@ -433,11 +504,9 @@ impl IOControlPanel {
                 ui.horizontal(|ui| {
                     ui.label(format!("Triac {}: ", i + 1));
                     
-                    let mut value = self.pending_triacs[i] as f32;
-                    if ui.add(egui::Slider::new(&mut value, 0.0..=100.0)
-                        .suffix("%")
-                        .show_value(true)).changed() {
-                        self.pending_triacs[i] = value as u8;
+                    // Toggle switch for ON/OFF
+                    if ui.checkbox(&mut self.pending_triacs[i], if self.pending_triacs[i] { "ON" } else { "OFF" }).changed() {
+                        self.has_pending_changes = true;
                     }
                     
                     if self.pending_triacs[i] != self.triacs[i] {
@@ -595,13 +664,23 @@ impl IOControlPanel {
                 });
         }
         
-        // Update real-time values (simulate for now)
+        // Update REAL sensor values from hardware
         if self.last_update.elapsed() > std::time::Duration::from_secs(2) {
             for i in 0..self.current_values.len() {
                 if !self.input_manual_modes[i] {
-                    // Simulate sensor readings
-                    self.current_values[i] = 50.0 + (i as f32 * 10.0) + 
-                        (rand::random::<f32>() - 0.5) * 5.0;
+                    // Read REAL sensor values from MegaBAS board
+                    let result = std::process::Command::new("megabas")
+                        .args(&["0", "ain", &(i + 1).to_string()])
+                        .output();
+                    
+                    if let Ok(output) = result {
+                        if let Ok(value) = String::from_utf8_lossy(&output.stdout).trim().parse::<f32>() {
+                            // Apply calibration and scaling
+                            let config = &self.universal_inputs[i];
+                            let scaled = (value / 10.0) * (config.scaling_max - config.scaling_min) + config.scaling_min;
+                            self.current_values[i] = scaled + config.calibration_offset;
+                        }
+                    }
                 }
             }
             self.last_update = std::time::Instant::now();
@@ -609,5 +688,3 @@ impl IOControlPanel {
     }
 }
 
-// Add rand for simulation
-use rand::Rng;

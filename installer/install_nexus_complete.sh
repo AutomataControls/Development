@@ -446,40 +446,114 @@ install_python_libs() {
 install_sequent_libs() {
     print_info "Installing Sequent Microsystems libraries..."
     
-    TEMP_DIR="/tmp/sequent_libs"
-    mkdir -p "$TEMP_DIR"
-    cd "$TEMP_DIR"
+    # Check if firmware directory exists locally
+    FIRMWARE_DIR="/home/Automata/firmware"
     
-    # List of Sequent repos
-    SEQUENT_REPOS=(
-        "megabas-rpi"
-        "megaind-rpi"
-        "16relind-rpi"
-        "16univin-rpi"
-        "8relind-rpi"
-    )
-    
-    for repo in "${SEQUENT_REPOS[@]}"; do
-        print_info "Installing $repo..."
+    if [[ -d "$FIRMWARE_DIR" ]]; then
+        print_info "Using local firmware directory..."
         
-        # Clone repository
-        git clone "https://github.com/SequentMicrosystems/${repo}.git" >> "$LOG_FILE" 2>&1 || continue
+        # Install from local firmware directory
+        BOARD_DIRS=(
+            "megabas-rpi"
+            "8relind-rpi"
+            "16relind-rpi"
+            "16univin-rpi"
+            "16uout-rpi"
+        )
         
-        # Install
-        cd "$repo"
-        if [[ -f "setup.py" ]]; then
-            python3 setup.py install >> "$LOG_FILE" 2>&1 || print_warning "Failed to install $repo"
-        elif [[ -d "python" ]]; then
-            cd python
-            python3 setup.py install >> "$LOG_FILE" 2>&1 || print_warning "Failed to install $repo"
+        for board_dir in "${BOARD_DIRS[@]}"; do
+            BOARD_PATH="$FIRMWARE_DIR/$board_dir"
+            
+            if [[ -d "$BOARD_PATH" ]]; then
+                print_info "Installing $board_dir from local firmware..."
+                cd "$BOARD_PATH"
+                
+                # Compile C drivers if Makefile exists
+                if [[ -f "Makefile" ]]; then
+                    print_info "Compiling $board_dir drivers..."
+                    make clean >> "$LOG_FILE" 2>&1
+                    make >> "$LOG_FILE" 2>&1
+                    make install >> "$LOG_FILE" 2>&1 || print_warning "Failed to install $board_dir drivers"
+                fi
+                
+                # Install Python library
+                if [[ -d "python" ]]; then
+                    cd python
+                    if [[ -f "setup.py" ]]; then
+                        python3 setup.py install >> "$LOG_FILE" 2>&1 || print_warning "Failed to install $board_dir Python library"
+                    fi
+                    cd ..
+                elif [[ -f "setup.py" ]]; then
+                    python3 setup.py install >> "$LOG_FILE" 2>&1 || print_warning "Failed to install $board_dir Python library"
+                fi
+            fi
+        done
+        
+    else
+        print_info "Downloading firmware from GitHub..."
+        
+        TEMP_DIR="/tmp/sequent_libs"
+        mkdir -p "$TEMP_DIR"
+        cd "$TEMP_DIR"
+        
+        # List of Sequent repos
+        SEQUENT_REPOS=(
+            "megabas-rpi"
+            "megaind-rpi"
+            "16relind-rpi"
+            "16univin-rpi"
+            "8relind-rpi"
+            "16uout-rpi"
+        )
+        
+        for repo in "${SEQUENT_REPOS[@]}"; do
+            print_info "Installing $repo..."
+            
+            # Clone repository
+            git clone "https://github.com/SequentMicrosystems/${repo}.git" >> "$LOG_FILE" 2>&1 || continue
+            
+            cd "$repo"
+            
+            # Compile C drivers if Makefile exists
+            if [[ -f "Makefile" ]]; then
+                print_info "Compiling $repo drivers..."
+                make clean >> "$LOG_FILE" 2>&1
+                make >> "$LOG_FILE" 2>&1
+                make install >> "$LOG_FILE" 2>&1 || print_warning "Failed to install $repo drivers"
+            fi
+            
+            # Install Python library
+            if [[ -d "python" ]]; then
+                cd python
+                if [[ -f "setup.py" ]]; then
+                    python3 setup.py install >> "$LOG_FILE" 2>&1 || print_warning "Failed to install $repo Python library"
+                fi
+                cd ..
+            elif [[ -f "setup.py" ]]; then
+                python3 setup.py install >> "$LOG_FILE" 2>&1 || print_warning "Failed to install $repo Python library"
+            fi
+            
             cd ..
-        fi
-        cd ..
-    done
+        done
+        
+        # Cleanup
+        cd /
+        rm -rf "$TEMP_DIR"
+    fi
     
-    # Cleanup
-    cd /
-    rm -rf "$TEMP_DIR"
+    # Copy firmware interface to install location
+    if [[ -f "$SCRIPT_DIR/../src/firmware_interface.py" ]]; then
+        cp "$SCRIPT_DIR/../src/firmware_interface.py" "$INSTALL_BASE/firmware_interface.py"
+        chmod +x "$INSTALL_BASE/firmware_interface.py"
+        print_status "Firmware interface installed"
+    fi
+    
+    # Test firmware installation
+    print_info "Testing firmware installation..."
+    python3 -c "import megabas; print('MegaBAS OK')" >> "$LOG_FILE" 2>&1 || print_warning "MegaBAS library not working"
+    python3 -c "import lib8relind; print('8-Relay OK')" >> "$LOG_FILE" 2>&1 || print_warning "8-Relay library not working"
+    python3 -c "import SM16relind; print('16-Relay OK')" >> "$LOG_FILE" 2>&1 || print_warning "16-Relay library not working"
+    python3 -c "import lib16univin; print('16-UnivIn OK')" >> "$LOG_FILE" 2>&1 || print_warning "16-UnivIn library not working"
     
     print_status "Sequent libraries installed"
 }
